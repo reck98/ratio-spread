@@ -1,0 +1,39 @@
+config_version: 1.0
+
+application:
+  timezone: Asia/Kolkata
+  paper_trading: true
+
+broker:
+  name: upstox
+
+strategy:
+  name: ratio_spread
+
+trading:
+  entry_time: "09:27:00"
+  exit_time: "15:27:00"
+  monitor_interval: 1
+  stop_loss_percent: 1.0
+  strike_interval: 50
+  buy_lots: 1
+  sell_multiplier: 3
+
+symbols:
+  nifty:
+    enabled: true
+  sensex:
+    enabled: true
+
+database:
+  sqlite_path: data/trading.db
+
+state:
+  state_file: state/position_state.json
+
+logging:
+  log_directory: logs/
+  level: INFO
+
+reports:
+  directory: reports/

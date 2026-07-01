@@ -1,0 +1,21 @@
+# Environment variables — contains API secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Project data / logs / reports
+data/
+logs/
+reports/
+state/position_state.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
