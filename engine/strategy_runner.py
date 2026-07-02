@@ -1,6 +1,7 @@
 import asyncio
 from datetime import date, datetime, timezone
-from typing import Optional
+from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 from broker.instrument_resolver import InstrumentResolver
 from broker.paper_broker import PaperBroker
@@ -23,6 +24,7 @@ from utils.models import (
     ExitReason,
     InstrumentType,
     OptionType,
+    Order,
     Position,
     Side,
     StrategyContext,
@@ -67,6 +69,7 @@ class StrategyRunner:
         self._logger = LogManager.get_logger("strategy")
         self._context = StrategyContext()
         self._metrics = StrategyMetrics()
+        self._local_tz = ZoneInfo(config.application.timezone)
         self._running = False
 
     @property
@@ -104,7 +107,7 @@ class StrategyRunner:
         mtm = self._context.current_mtm
         if mtm > self._metrics.highest_mtm:
             self._metrics.highest_mtm = mtm
-        if mtm < self._metrics.lowest_mtm:
+        if self._metrics.lowest_mtm == 0.0 or mtm < self._metrics.lowest_mtm:
             self._metrics.lowest_mtm = mtm
         if mtm > 0:
             self._metrics.max_favorable_excursion = max(self._metrics.max_favorable_excursion, mtm)
@@ -122,29 +125,45 @@ class StrategyRunner:
         self._logger.info("Strategy starting: %s expiry=%s", instrument.value, expiry_date)
 
         self._context.strategy_state = StrategyState.SELECTING_INSTRUMENTS
-        atm_strike = await self._resolver.resolve_atm_strike(
-            instrument, expiry_date, entry_lpt, self._config.trading.strike_interval,
-        )
-        self._context.atm_strike = atm_strike
 
         option_chain = await self._broker.load_option_chain(instrument.value, expiry_date)
 
-        atm_call = await self._resolver.resolve_option(instrument, atm_strike, OptionType.CE, expiry_date)
-        atm_put = await self._resolver.resolve_option(instrument, atm_strike, OptionType.PE, expiry_date)
+        calls = option_chain.get("calls", [])
+        puts = option_chain.get("puts", [])
+
+        all_strikes = sorted(set(
+            c["strike"] for c in calls + puts if c.get("strike")
+        ))
+        if len(all_strikes) >= 2:
+            intervals = [all_strikes[i+1] - all_strikes[i] for i in range(len(all_strikes) - 1)]
+            strike_interval = min(intervals)
+        else:
+            strike_interval = self._config.trading.strike_interval
+
+        atm_strike = await self._resolver.resolve_atm_strike(
+            instrument, expiry_date, entry_lpt, strike_interval,
+        )
+        self._context.atm_strike = atm_strike
+
+        def _find_chain_entry(chain: list[dict[str, Any]], strike: int) -> Optional[dict[str, Any]]:
+            return next((c for c in chain if c["strike"] == strike), None)
+
+        atm_call = _find_chain_entry(calls, atm_strike)
+        atm_put = _find_chain_entry(puts, atm_strike)
 
         if not atm_call or not atm_put:
-            self._logger.error("Failed to resolve ATM options")
+            self._logger.error("Failed to resolve ATM options in chain")
             self._context.strategy_state = StrategyState.COMPLETED
             self._context.exit_reason = ExitReason.FAILED
             return self._context
 
-        atm_call_premium = atm_call.get("premium", atm_call.get("ltp", entry_lpt * 0.01))
-        atm_put_premium = atm_put.get("premium", atm_put.get("ltp", entry_lpt * 0.01))
+        def _find_premium(chain: list[dict[str, Any]], strike: int) -> float:
+            return next((c["premium"] for c in chain if c["strike"] == strike), 0.0)
+
+        atm_call_premium = _find_premium(calls, atm_strike)
+        atm_put_premium = _find_premium(puts, atm_strike)
         self._context.atm_call_premium = atm_call_premium
         self._context.atm_put_premium = atm_put_premium
-
-        calls = option_chain.get("calls", [])
-        puts = option_chain.get("puts", [])
 
         sell_call = self._resolver.find_sell_strike(atm_call_premium, calls) if calls else None
         sell_put = self._resolver.find_sell_strike(atm_put_premium, puts) if puts else None
@@ -164,36 +183,54 @@ class StrategyRunner:
         entry_time = datetime.now(timezone.utc)
         self._context.entry_time = entry_time
 
+        lots = self._config.trading.buy_lots
+        sell_qty = lots * self._config.trading.sell_multiplier
+        lot_size = self._config.trading.lot_sizes.get(instrument.value, 1)
+
+        orders_specs = [
+            (atm_call, Side.BUY, lots, atm_call_premium, OptionType.CE.value),
+            (atm_put, Side.BUY, lots, atm_put_premium, OptionType.PE.value),
+            (sell_call, Side.SELL, sell_qty, self._context.sell_call_premium, OptionType.CE.value),
+            (sell_put, Side.SELL, sell_qty, self._context.sell_put_premium, OptionType.PE.value),
+        ]
+
+        margin_used = await self._broker.get_margin([
+            Order(
+                order_id="", strategy_run_id=0,
+                instrument_key=spec.get("instrument_key", ""),
+                trading_symbol=spec.get("trading_symbol", ""),
+                option_type=OptionType(opt_type.upper()),
+                strike=spec.get("strike", 0),
+                side=side,
+                quantity=qty,
+                entry_price=price,
+                execution_time=entry_time,
+            )
+            for spec, side, qty, price, opt_type in orders_specs
+        ])
+        if margin_used <= 0:
+            margin_used = self._broker.estimate_margin()
+            self._logger.warning("Margin API returned 0, using fallback: %.2f", margin_used)
+
         run_id = self._strategy_run_repo.create(
             trading_date=trading_date,
             instrument=instrument.value,
             expiry_date=expiry_date,
             entry_time=entry_time,
-            margin_used=self._broker.estimate_margin(),
+            margin_used=margin_used,
             atm_strike=atm_strike,
             sell_call_strike=self._context.sell_call_strike,
             sell_put_strike=self._context.sell_put_strike,
         )
         self._context.run_id = run_id
-        self._context.margin_used = self._broker.estimate_margin()
-
-        lots = self._config.trading.buy_lots
-        sell_qty = lots * self._config.trading.sell_multiplier
-
-        orders_specs = [
-            (atm_call, Side.BUY, lots, atm_call_premium),
-            (atm_put, Side.BUY, lots, atm_put_premium),
-            (sell_call, Side.SELL, sell_qty, self._context.sell_call_premium),
-            (sell_put, Side.SELL, sell_qty, self._context.sell_put_premium),
-        ]
+        self._context.margin_used = margin_used
 
         ctx_positions: list[Position] = []
-        for spec, side, qty, price in orders_specs:
+        for spec, side, qty, price, opt_type in orders_specs:
             inst_key = spec.get("instrument_key", f"{instrument.value}_FAKE")
             sym_spec_strike = spec.get("strike", 0)
-            sym = spec.get("trading_symbol", f"{instrument.value}{sym_spec_strike}{spec.get('option_type', 'CE')}")
+            sym = spec.get("trading_symbol", f"{instrument.value}{sym_spec_strike}{opt_type}")
             strike = spec.get("strike", 0)
-            opt_type = spec.get("option_type", "CE")
             order = await self._broker.place_order(
                 run_id, inst_key, sym, opt_type, strike, side.value, qty, price,
             )
@@ -202,11 +239,11 @@ class StrategyRunner:
             pos = Position(
                 instrument_key=inst_key,
                 trading_symbol=sym,
-                option_type=opt_type.upper(),
+                option_type=OptionType(opt_type.upper()),
                 strike=strike,
                 expiry=expiry_date,
                 side=Side(side.value),
-                quantity=qty,
+                quantity=qty * lot_size,
                 entry_price=price,
                 current_price=price,
             )
@@ -232,20 +269,38 @@ class StrategyRunner:
         self._logger.info("Monitoring started")
 
         while self._running and self._context.strategy_state == StrategyState.MONITORING:
-            now = datetime.now(timezone.utc)
-            now_str = now.strftime("%H:%M:%S")
+            now_utc = datetime.now(timezone.utc)
+            now_local = now_utc.astimezone(self._local_tz)
+            now_local_str = now_local.strftime("%H:%M:%S")
 
-            should_exit, reason = self._risk_manager.should_exit(self._context, now_str, exit_time_str)
+            should_exit, reason = self._risk_manager.should_exit(self._context, now_local_str, exit_time_str)
             if should_exit:
                 self._context = await self._exit_manager.exit_all(self._context, reason)
                 break
 
-            loss_pct = (
-                abs(self._context.current_mtm) / self._context.margin_used * 100.0
-                if self._context.margin_used > 0 else 0
+            if self._context.current_mtm >= 0:
+                pnl_label = "Profit"
+            else:
+                pnl_label = "Loss"
+
+            pnl_pct = self._pnl_engine.calculate_loss_percentage(
+                self._context.current_mtm, self._context.margin_used,
             )
+            if self._context.current_mtm >= 0 and self._context.margin_used > 0:
+                pnl_pct = self._context.current_mtm / self._context.margin_used * 100.0
+                signed_pct = pnl_pct
+            elif self._context.current_mtm < 0:
+                signed_pct = -pnl_pct
+            else:
+                signed_pct = 0.0
+
             self._pnl_history_repo.insert(
-                self._context.run_id or 0, now, self._context.current_mtm, loss_pct,
+                self._context.run_id or 0, now_utc, self._context.current_mtm, signed_pct,
+            )
+
+            self._logger.info(
+                "PnL: %s MTM=%.2f %s=%.2f%%",
+                now_local_str, self._context.current_mtm, pnl_label, pnl_pct,
             )
 
             await asyncio.sleep(self._config.trading.monitor_interval)

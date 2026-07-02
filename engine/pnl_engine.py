@@ -18,7 +18,7 @@ class PnLEngine:
         return total
 
     def calculate_loss_percentage(self, current_mtm: float, margin_used: float) -> float:
-        if margin_used <= 0:
+        if margin_used <= 0 or current_mtm >= 0:
             return 0.0
         return abs(current_mtm) / margin_used * 100.0
 

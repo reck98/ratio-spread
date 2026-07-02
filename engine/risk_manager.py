@@ -8,7 +8,7 @@ class RiskManager:
         self._logger = LogManager.get_logger("strategy")
 
     def check_stop_loss(self, context: StrategyContext) -> bool:
-        if context.margin_used <= 0:
+        if context.margin_used <= 0 or context.current_mtm >= 0:
             return False
         loss_pct = abs(context.current_mtm) / context.margin_used * 100.0
         triggered = loss_pct >= self._stop_loss_percent

@@ -117,6 +117,14 @@ Get-Content reports/2026-07-01/trade_report.txt
 Get-Content reports/2026-07-01/statistics.txt
 ```
 
+### Standalone PnL Report
+
+A Rich-formatted report script that reads from the database and displays per-day summary, position breakdown, and overall statistics (win rate, RoC, max drawdown, Sharpe ratio):
+
+```bash
+python scripts/pnl_report.py
+```
+
 ---
 
 ## Viewing Logs

@@ -1,15 +1,21 @@
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Optional
 
 import aiohttp
 
+from broker.MarketDataFeed_pb2 import Feed, FeedResponse
+from broker.MarketDataFeed_pb2 import Type as FeedType
 from utils.logging import LogManager
 from utils.models import BrokerHealth, Tick
 
 
 class WebSocketManager:
+    BASE_URL = "https://api.upstox.com/v3"
+    AUTHORIZE_PATH = "/feed/market-data-feed/authorize"
+
     def __init__(self, access_token: str) -> None:
         self._access_token = access_token
         self._ws: aiohttp.ClientWebSocketResponse | None = None
@@ -17,7 +23,7 @@ class WebSocketManager:
         self._subscribed: set[str] = set()
         self._running = False
         self._health = BrokerHealth.DISCONNECTED
-        self._on_tick: Optional[Callable[[Tick], None]] = None
+        self._on_tick: Optional[Callable[[Tick], Awaitable[None]]] = None
         self._on_disconnect: Optional[Callable[[], None]] = None
         self._logger = LogManager.get_logger("websocket")
         self._last_heartbeat: Optional[datetime] = None
@@ -27,18 +33,38 @@ class WebSocketManager:
     def health(self) -> BrokerHealth:
         return self._health
 
-    def set_tick_handler(self, handler: Callable[[Tick], None]) -> None:
+    def set_tick_handler(self, handler: Callable[[Tick], Awaitable[None]]) -> None:
         self._on_tick = handler
 
     def set_disconnect_handler(self, handler: Callable[[], None]) -> None:
         self._on_disconnect = handler
 
+    async def _get_authorized_url(self) -> str:
+        assert self._session is not None
+        url = f"{self.BASE_URL}{self.AUTHORIZE_PATH}"
+        headers = {
+            "Authorization": f"Bearer {self._access_token}",
+            "Accept": "application/json",
+        }
+        async with self._session.get(url, headers=headers) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"Authorize failed: {resp.status} {text}")
+            data = await resp.json()
+        redirect_uri = data.get("data", {}).get("authorized_redirect_uri")
+        if not redirect_uri:
+            raise RuntimeError("No authorized_redirect_uri in response")
+        self._logger.info("Got authorized WebSocket URL")
+        return str(redirect_uri)
+
     async def connect(self) -> None:
         self._session = aiohttp.ClientSession()
-        ws_url = "wss://api.upstox.com/v2/feed/market-data-feed/websocket"
-        headers = {"Authorization": f"Bearer {self._access_token}"}
         try:
-            self._ws = await self._session.ws_connect(ws_url, headers=headers, heartbeat=10)
+            ws_url = await self._get_authorized_url()
+            headers = {"Authorization": f"Bearer {self._access_token}"}
+            self._ws = await self._session.ws_connect(
+                ws_url, headers=headers, heartbeat=10, max_msg_size=0,
+            )
             self._health = BrokerHealth.CONNECTED
             self._last_heartbeat = datetime.now(timezone.utc)
             self._logger.info("WebSocket connected")
@@ -60,10 +86,11 @@ class WebSocketManager:
             "guid": "feed",
             "method": "sub",
             "data": {
+                "mode": "ltpc",
                 "instrumentKeys": new_keys,
             },
         }
-        await self._ws.send_json(payload)
+        await self._ws.send_bytes(json.dumps(payload).encode())
         for k in new_keys:
             self._subscribed.add(k)
         self._logger.info("Subscribed to %d instruments: %s", len(new_keys), new_keys)
@@ -73,15 +100,17 @@ class WebSocketManager:
         while self._running and self._ws:
             try:
                 msg = await self._ws.receive(timeout=self._heartbeat_timeout)
-                if msg.type == aiohttp.WSMsgType.TEXT:
-                    data = json.loads(msg.data)
+                if msg.type == aiohttp.WSMsgType.BINARY:
                     self._last_heartbeat = datetime.now(timezone.utc)
-                    self._process_message(data)
+                    await self._process_message(msg.data)
+                elif msg.type == aiohttp.WSMsgType.TEXT:
+                    self._last_heartbeat = datetime.now(timezone.utc)
                 elif msg.type == aiohttp.WSMsgType.CLOSED:
                     self._logger.warning("WebSocket closed by server")
                     break
                 elif msg.type == aiohttp.WSMsgType.ERROR:
-                    self._logger.error("WebSocket error: %s", self._ws.exception())
+                    self._logger.warning("WebSocket error: %s", self._ws.exception())
+                    await self._reconnect()
                     break
             except asyncio.TimeoutError:
                 elapsed = (datetime.now(timezone.utc) - self._last_heartbeat).seconds if self._last_heartbeat else 0
@@ -94,11 +123,22 @@ class WebSocketManager:
                 await self._reconnect()
                 break
 
-    def _process_message(self, data: dict[str, Any]) -> None:
-        feeds = data.get("feeds", {})
-        for instrument_key, feed in feeds.items():
-            ff = feed.get("ff", {})
-            ltp = ff.get("ltp", ff.get("marketData", {}).get("ltp"))
+    async def _process_message(self, data: bytes) -> None:
+        response = FeedResponse()
+        try:
+            response.ParseFromString(data)
+        except Exception as e:
+            self._logger.warning("Failed to parse protobuf: %s", e)
+            return
+
+        if response.type == FeedType.market_info:
+            return
+
+        if response.type != FeedType.live_feed:
+            return
+
+        for instrument_key, feed in response.feeds.items():
+            ltp = self._extract_ltp(feed)
             if ltp is not None:
                 tick = Tick(
                     instrument_key=instrument_key,
@@ -106,7 +146,23 @@ class WebSocketManager:
                     timestamp=datetime.now(timezone.utc),
                 )
                 if self._on_tick:
-                    self._on_tick(tick)
+                    await self._on_tick(tick)
+
+    @staticmethod
+    def _extract_ltp(feed: Feed) -> Optional[float]:
+        field = feed.WhichOneof("FeedUnion")
+        if field == "ltpc":
+            return feed.ltpc.ltp
+        if field == "fullFeed":
+            ff = feed.fullFeed
+            inner = ff.WhichOneof("FullFeedUnion")
+            if inner == "marketFF":
+                return ff.marketFF.ltpc.ltp
+            if inner == "indexFF":
+                return ff.indexFF.ltpc.ltp
+        if field == "firstLevelWithGreeks":
+            return feed.firstLevelWithGreeks.ltpc.ltp
+        return None
 
     async def _reconnect(self) -> None:
         self._health = BrokerHealth.RECONNECTING

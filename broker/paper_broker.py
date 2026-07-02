@@ -9,7 +9,7 @@ from utils.models import BrokerHealth, Order, OrderStatus
 
 
 class PaperBroker(BrokerInterface):
-    def __init__(self, live_broker: UpstoxBroker, margin: float = 500000.0) -> None:
+    def __init__(self, live_broker: UpstoxBroker, margin: float = 650000.0) -> None:
         self._live_broker = live_broker
         self._margin = margin
         self._orders: list[Order] = []
@@ -75,7 +75,11 @@ class PaperBroker(BrokerInterface):
         return 0.0
 
     async def get_margin(self, orders: list[Order]) -> float:
-        return self._margin
+        try:
+            return await self._live_broker.get_margin(orders)
+        except Exception as e:
+            self._logger.warning("Margin API call failed, using fallback: %s", e)
+            return self._margin
 
     @property
     def health(self) -> BrokerHealth:

@@ -85,7 +85,7 @@ class Startup:
         await upstox.authenticate()
         components.upstox_broker = upstox
 
-        paper_broker = PaperBroker(upstox)
+        paper_broker = PaperBroker(upstox, margin=config.trading.margin)
         await paper_broker.connect()
         components.paper_broker = paper_broker
 

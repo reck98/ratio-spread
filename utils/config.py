@@ -25,6 +25,7 @@ class StrategyConfig(BaseModel):
 
 
 class TradingConfig(BaseModel):
+    margin: float = 650000.0
     entry_time: str = "09:27:00"
     exit_time: str = "15:27:00"
     monitor_interval: int = 1
@@ -32,6 +33,7 @@ class TradingConfig(BaseModel):
     strike_interval: int = 50
     buy_lots: int = 1
     sell_multiplier: int = 3
+    lot_sizes: dict[str, int] = Field(default_factory=lambda: {"NIFTY": 65, "SENSEX": 20})
 
     @field_validator("entry_time", "exit_time")
     @classmethod

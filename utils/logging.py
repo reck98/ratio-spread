@@ -1,5 +1,6 @@
+import sys
 from datetime import date
-from logging import FileHandler, Formatter, Logger, getLogger
+from logging import FileHandler, Formatter, Logger, StreamHandler, getLogger
 from pathlib import Path
 
 
@@ -23,10 +24,20 @@ class LogManager:
 
         formatter = Formatter("%(asctime)s %(levelname)-8s %(name)-15s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
+        root = getLogger()
+        root.handlers.clear()
+        root.setLevel(level.upper())
+
+        console = StreamHandler(sys.stdout)
+        console.setFormatter(formatter)
+        console.setLevel(level.upper())
+        root.addHandler(console)
+
         for name, log_file in log_files.items():
             logger = getLogger(name)
             logger.setLevel(level.upper())
             logger.handlers.clear()
+            logger.propagate = True
 
             handler = FileHandler(log_file, encoding="utf-8")
             handler.setFormatter(formatter)

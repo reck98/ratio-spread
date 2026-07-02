@@ -111,7 +111,7 @@ class TradingApp:
         ws = self._components.websocket_manager  # type: ignore[union-attr]
         async def tick_handler(tick: Tick) -> None:
             await self._components.strategy.on_tick(tick)  # type: ignore[union-attr]
-        ws.set_tick_handler(tick_handler)  # type: ignore[arg-type]
+        ws.set_tick_handler(tick_handler)
 
         try:
             await ws.connect()
@@ -126,7 +126,14 @@ class TradingApp:
         asyncio.create_task(ws.listen())
 
     async def _get_ltp(self) -> float:
-        return 25000.0
+        assert self._instrument is not None
+        assert self._components is not None
+        broker = self._components.upstox_broker
+        instrument_key = broker.INSTRUMENT_KEYS.get(self._instrument.value, self._instrument.value)
+        ltp = await broker.get_current_ltp(instrument_key)
+        if ltp > 0:
+            self._logger.info("Current LTP for %s: %.2f", self._instrument.value, ltp)  # type: ignore[union-attr]
+        return ltp
 
     async def _generate_reports(self, context: StrategyContext) -> None:
         report_dir = self._components.config.reports.directory  # type: ignore[union-attr]

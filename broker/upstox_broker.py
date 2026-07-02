@@ -12,6 +12,10 @@ from utils.models import BrokerHealth, Order, OrderStatus
 
 class UpstoxBroker(BrokerInterface):
     BASE_URL = "https://api.upstox.com/v2"
+    INSTRUMENT_KEYS: dict[str, str] = {
+        "NIFTY": "NSE_INDEX|Nifty 50",
+        "SENSEX": "BSE_INDEX|SENSEX",
+    }
 
     def __init__(self, config: AppConfig) -> None:
         self._config = config
@@ -23,6 +27,10 @@ class UpstoxBroker(BrokerInterface):
         self._logger = LogManager.get_logger("broker")
         self._instruments_cache: list[dict[str, Any]] = []
         self._option_chain_cache: dict[str, Any] = {}
+
+    @staticmethod
+    def _resolve_instrument_key(symbol: str) -> str:
+        return UpstoxBroker.INSTRUMENT_KEYS.get(symbol.upper(), symbol)
 
     async def connect(self) -> None:
         self._session = aiohttp.ClientSession()
@@ -76,38 +84,58 @@ class UpstoxBroker(BrokerInterface):
         if cache_key in self._option_chain_cache:
             return self._option_chain_cache[cache_key]  # type: ignore[no-any-return]
 
-        symbol = "NIFTY" if "NIFTY" in instrument.upper() else "SENSEX"
+        instrument_key = self._resolve_instrument_key(instrument)
         try:
             data = await self._request(
-                "GET",
-                f"/market/option-chain/{symbol}",
-                params={"expiry": expiry.isoformat()},
+                "GET", "/option/chain",
+                params={"instrument_key": instrument_key, "expiry_date": expiry.isoformat()},
             )
-            result = data if isinstance(data, dict) else {}
+            raw = data if isinstance(data, dict) else {}
+            entries = raw.get("data", []) if isinstance(raw.get("data"), list) else []
         except Exception as e:
             self._logger.warning("Option chain fetch failed: %s", e)
-            result = {}
+            entries = []
 
-        calls = result.get("data", {}).get("calls", []) if isinstance(result.get("data"), dict) else []
-        puts = result.get("data", {}).get("puts", []) if isinstance(result.get("data"), dict) else []
+        calls: list[dict[str, Any]] = []
+        puts: list[dict[str, Any]] = []
+        for entry in entries:
+            strike = entry.get("strike_price")
+            if strike is None:
+                continue
 
-        organized: dict[str, list[dict[str, Any]]] = {
-            "calls": calls if isinstance(calls, list) else [],
-            "puts": puts if isinstance(puts, list) else [],
-        }
+            call_opt = entry.get("call_options") or {}
+            put_opt = entry.get("put_options") or {}
+
+            call_ltp = (call_opt.get("market_data") or {}).get("ltp", 0)
+            put_ltp = (put_opt.get("market_data") or {}).get("ltp", 0)
+
+            calls.append({
+                "strike": strike,
+                "ltp": call_ltp,
+                "premium": call_ltp,
+                "instrument_key": call_opt.get("instrument_key"),
+            })
+            puts.append({
+                "strike": strike,
+                "ltp": put_ltp,
+                "premium": put_ltp,
+                "instrument_key": put_opt.get("instrument_key"),
+            })
+
+        organized: dict[str, list[dict[str, Any]]] = {"calls": calls, "puts": puts}
         self._option_chain_cache[cache_key] = organized
         return organized
 
     async def get_expiry(self, instrument: str) -> Optional[date]:
-        symbol = "NIFTY" if "NIFTY" in instrument.upper() else "SENSEX"
+        instrument_key = self._resolve_instrument_key(instrument)
         try:
-            data = await self._request("GET", f"/market/instruments/option/{symbol}")
-            instruments = data if isinstance(data, list) else data.get("data", [])
-            if isinstance(instruments, list):
+            data = await self._request("GET", "/option/contract", params={"instrument_key": instrument_key})
+            contracts = data if isinstance(data, list) else data.get("data", [])
+            if isinstance(contracts, list):
                 expiries: set[date] = set()
                 today = date.today()
-                for inst in instruments:
-                    expiry_str = inst.get("expiry")
+                for c in contracts:
+                    expiry_str = c.get("expiry")
                     if expiry_str:
                         try:
                             exp = date.fromisoformat(expiry_str)
@@ -178,10 +206,43 @@ class UpstoxBroker(BrokerInterface):
         return order
 
     async def get_current_ltp(self, instrument_key: str) -> float:
-        return 0.0
+        try:
+            data = await self._request(
+                "GET", "/market-quote/quotes",
+                params={"instrument_key": instrument_key},
+            )
+            lookup_key = instrument_key.replace("|", ":")
+            quotes = data.get("data", {}).get(lookup_key, {})
+            ltp = float(quotes.get("last_price", 0.0))
+            if ltp > 0:
+                self._logger.info("LTP for %s: %.2f", instrument_key, ltp)
+            return ltp
+        except Exception as e:
+            self._logger.warning("Failed to get LTP for %s: %s", instrument_key, e)
+            return 0.0
 
     async def get_margin(self, orders: list[Order]) -> float:
-        return 0.0
+        instruments = [
+            {
+                "instrument_key": o.instrument_key,
+                "quantity": o.quantity,
+                "transaction_type": o.side.value.upper(),
+                "product": "D",
+                "price": o.entry_price,
+            }
+            for o in orders
+        ]
+        try:
+            data = await self._request(
+                "POST", "/charges/margin",
+                json={"instruments": instruments},
+            )
+            required = data.get("data", {}).get("required_margin", 0.0)
+            self._logger.info("Margin required: %.2f", required)
+            return float(required)
+        except Exception as e:
+            self._logger.warning("Margin calculation failed: %s", e)
+            return 0.0
 
     @property
     def health(self) -> BrokerHealth:
