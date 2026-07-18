@@ -7,7 +7,12 @@ class PnLEngine:
         self._logger = LogManager.get_logger("strategy")
 
     def calculate_position_pnl(self, position: Position) -> float:
-        current = position.current_price if not position.closed else (position.exit_price or position.current_price)
+        if position.closed and position.exit_price is not None:
+            # Use the realized exit price. A legitimate 0.0 (worthless expiry) must
+            # NOT be treated as missing — expiry-day settlement to zero is the norm.
+            current = position.exit_price
+        else:
+            current = position.current_price
         if position.side == Side.BUY:
             return (current - position.entry_price) * position.quantity
         else:

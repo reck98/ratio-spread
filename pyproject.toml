@@ -34,6 +34,8 @@ dev = [
 target-version = "py312"
 line-length = 120
 indent-width = 4
+# Generated protobuf stubs — not hand-maintained, don't lint.
+extend-exclude = ["broker/MarketDataFeed_pb2.py", "broker/MarketDataFeed_pb2.pyi"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
@@ -53,4 +55,5 @@ ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]

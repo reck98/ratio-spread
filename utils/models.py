@@ -40,6 +40,7 @@ class StrategyState(str, Enum):
 class ExitReason(str, Enum):
     STOP_LOSS = "STOP_LOSS"
     SCHEDULED_EXIT = "SCHEDULED_EXIT"
+    MANUAL_EXIT = "MANUAL_EXIT"
     FAILED = "FAILED"
     NONE = "NONE"
 
@@ -73,6 +74,7 @@ class Order(BaseModel):
 
 
 class Position(BaseModel):
+    id: Optional[int] = None
     instrument_key: str
     trading_symbol: str
     option_type: OptionType

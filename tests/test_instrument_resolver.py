@@ -54,3 +54,22 @@ def test_sell_strike_no_match() -> None:
     chain = [{"strike": 25200, "premium": 100}]
     result = resolver.find_sell_strike(50, chain)
     assert result is None
+
+
+def test_sell_strike_respects_multiplier() -> None:
+    # With sell_multiplier=2 the target is buy/2 = 90, so the 88-premium strike is the
+    # highest that fits — a hardcoded /3 (target 60) would wrongly pick a lower one.
+    resolver = _make_resolver()
+    chain = [
+        {"strike": 25200, "premium": 95},
+        {"strike": 25250, "premium": 88},
+        {"strike": 25300, "premium": 55},
+    ]
+    result = resolver.find_sell_strike(180, chain, sell_multiplier=2)
+    assert result is not None
+    assert result["strike"] == 25250
+
+    # Same chain with the default multiplier of 3 (target 60) picks the lower strike.
+    result3 = resolver.find_sell_strike(180, chain, sell_multiplier=3)
+    assert result3 is not None
+    assert result3["strike"] == 25300

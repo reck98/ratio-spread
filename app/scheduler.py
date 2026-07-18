@@ -36,6 +36,16 @@ class Scheduler:
         self._logger.info("Waiting %.0f seconds until entry at %s (%s)",
                           delay, self._entry_time, self._tz)
         await asyncio.sleep(delay)
+
+        # Re-validate after sleeping: if the clock is now at/after the exit time
+        # (misconfigured or very late start), do not enter a trade we'd immediately exit.
+        now_after = datetime.now(self._tz)
+        if now_after.time() >= self._exit_time:
+            self._logger.warning(
+                "Woke at %s which is past exit_time %s — skipping today",
+                now_after.strftime("%H:%M:%S"), self._exit_time,
+            )
+            return False
         return True
 
     @property

@@ -47,3 +47,13 @@ def test_clear(tmp_path: Path) -> None:
     assert sm.load() is not None
     sm.clear()
     assert sm.load() is None
+
+
+def test_load_corrupt_json_returns_none(tmp_path: Path) -> None:
+    # A truncated/corrupt state file must not crash startup — load() should log and
+    # return None so the app starts fresh.
+    state_path = tmp_path / "corrupt_state.json"
+    state_path.write_text('{"strategy_state": "MONITORING", "positions": [')  # truncated
+    sm = StateManager()
+    sm.initialize(str(state_path))
+    assert sm.load() is None

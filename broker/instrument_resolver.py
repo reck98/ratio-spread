@@ -34,9 +34,13 @@ class InstrumentResolver:
             instrument.value, strike, option_type.value, expiry,
         )
 
-    def find_sell_strike(self, buy_premium: float, option_chain: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
-        target = buy_premium / 3.0
-        if buy_premium < 3:
+    def find_sell_strike(
+        self, buy_premium: float, option_chain: list[dict[str, Any]], sell_multiplier: int = 3,
+    ) -> Optional[dict[str, Any]]:
+        if sell_multiplier <= 0:
+            sell_multiplier = 3
+        target = buy_premium / sell_multiplier
+        if buy_premium < sell_multiplier:
             self._logger.warning("Buy premium %.2f too small for sell strike selection", buy_premium)
             return None
 

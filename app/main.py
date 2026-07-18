@@ -18,6 +18,7 @@ class TradingApp:
         self._logger: Optional[Logger] = None
         self._instrument: Optional[InstrumentType] = None
         self._expiry_date: Optional[date] = None
+        self._ws_task: Optional[asyncio.Task[None]] = None
 
     async def run(self) -> None:
         try:
@@ -27,9 +28,18 @@ class TradingApp:
 
             recovered = await self._try_recovery()
             if recovered:
-                self._logger.info("Resumed from crash recovery")
+                self._logger.info("Resumed from crash recovery (state=%s)", recovered.strategy_state.value)
                 if recovered.strategy_state == StrategyState.MONITORING:
                     await self._resume_monitoring(recovered)
+                elif recovered.strategy_state == StrategyState.COMPLETED:
+                    # recover() already completed/finalized any mid-exit — still emit
+                    # the session reports so the run isn't left without output.
+                    await self._generate_reports(recovered)
+                else:
+                    self._logger.warning(
+                        "Recovered in unmanaged state %s — no positions to monitor",
+                        recovered.strategy_state.value,
+                    )
                 return
 
             if not await self._resolve_expiry():
@@ -68,6 +78,7 @@ class TradingApp:
             logger.exception("Fatal application error: %s", e)
             raise
         finally:
+            await self._cancel_ws_task()
             if self._components:
                 await ShutdownManager.shutdown(self._components)
 
@@ -123,7 +134,28 @@ class TradingApp:
         if instrument_keys:
             await ws.subscribe(instrument_keys)
 
-        asyncio.create_task(ws.listen())
+        # Keep a reference so the task isn't garbage-collected mid-run, and surface
+        # any exception it raises instead of silently swallowing it.
+        self._ws_task = asyncio.create_task(ws.listen())
+        self._ws_task.add_done_callback(self._on_ws_task_done)
+
+    def _on_ws_task_done(self, task: "asyncio.Task[None]") -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            LogManager.get_logger("websocket").error(
+                "WebSocket listen task exited with error: %s", exc, exc_info=exc,
+            )
+
+    async def _cancel_ws_task(self) -> None:
+        if self._ws_task is not None and not self._ws_task.done():
+            self._ws_task.cancel()
+            try:
+                await self._ws_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        self._ws_task = None
 
     async def _get_ltp(self) -> float:
         assert self._instrument is not None
@@ -137,7 +169,7 @@ class TradingApp:
 
     async def _generate_reports(self, context: StrategyContext) -> None:
         report_dir = self._components.config.reports.directory  # type: ignore[union-attr]
-        metrics = self._components.strategy._runner.metrics  # type: ignore[union-attr]
+        metrics = self._components.strategy.metrics  # type: ignore[union-attr]
         self._components.pnl_report.generate(context, report_dir)  # type: ignore[union-attr]
         self._components.trade_report.generate(context, report_dir)  # type: ignore[union-attr]
         self._components.session_report.generate(context, metrics, report_dir)  # type: ignore[union-attr]

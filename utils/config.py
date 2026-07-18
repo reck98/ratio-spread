@@ -5,7 +5,7 @@ from typing import Optional
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ApplicationConfig(BaseModel):
@@ -25,14 +25,14 @@ class StrategyConfig(BaseModel):
 
 
 class TradingConfig(BaseModel):
-    margin: float = 650000.0
+    margin: float = Field(default=650000.0, gt=0)
     entry_time: str = "09:27:00"
     exit_time: str = "15:27:00"
-    monitor_interval: int = 1
-    stop_loss_percent: float = 1.0
-    strike_interval: int = 50
-    buy_lots: int = 1
-    sell_multiplier: int = 3
+    monitor_interval: int = Field(default=1, gt=0)
+    stop_loss_percent: float = Field(default=1.0, gt=0)
+    strike_interval: int = Field(default=50, gt=0)
+    buy_lots: int = Field(default=1, gt=0)
+    sell_multiplier: int = Field(default=3, gt=0)
     lot_sizes: dict[str, int] = Field(default_factory=lambda: {"NIFTY": 65, "SENSEX": 20})
 
     @field_validator("entry_time", "exit_time")
@@ -43,6 +43,14 @@ class TradingConfig(BaseModel):
         except ValueError:
             raise ValueError(f"Time must be in HH:MM:SS format: {v}")
         return v
+
+    @model_validator(mode="after")
+    def validate_entry_before_exit(self) -> "TradingConfig":
+        if self.entry_time_obj() >= self.exit_time_obj():
+            raise ValueError(
+                f"entry_time ({self.entry_time}) must be before exit_time ({self.exit_time})"
+            )
+        return self
 
     def entry_time_obj(self) -> time:
         return time.fromisoformat(self.entry_time)
@@ -105,8 +113,16 @@ class ConfigLoader:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def load(self, path: str = "config/config.yaml", env_path: str = ".env") -> AppConfig:
-        if self._config is not None:
+    @classmethod
+    def reset(cls) -> None:
+        """Drop the cached singleton/config (used by tests to avoid cross-test leakage)."""
+        cls._instance = None
+        cls._config = None
+
+    def load(
+        self, path: str = "config/config.yaml", env_path: str = ".env", reload: bool = False,
+    ) -> AppConfig:
+        if self._config is not None and not reload:
             return self._config
 
         config_path = Path(path)

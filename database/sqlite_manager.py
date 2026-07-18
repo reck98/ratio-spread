@@ -13,8 +13,21 @@ class SQLiteManager:
             cls._instance = super().__new__(cls)
         return cls._instance
 
+    @classmethod
+    def reset(cls) -> None:
+        """Close and drop the singleton connection (used by tests)."""
+        if cls._instance is not None and cls._instance._connection is not None:
+            cls._instance._connection.close()
+        cls._connection = None
+        cls._instance = None
+
     def initialize(self, db_path: str, schema_path: str = "database/schema.sql") -> None:
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # Close any prior connection before replacing it, so re-init (tests, restart)
+        # doesn't leak the old connection or its WAL locks.
+        if self._connection is not None:
+            self._connection.close()
+            self._connection = None
         self._connection = sqlite3.connect(db_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode = WAL;")
@@ -34,6 +47,19 @@ class SQLiteManager:
     def execute(self, query: str, params: tuple[object, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
             return self.connection.execute(query, params)
+
+    def execute_write(self, query: str, params: tuple[object, ...] = ()) -> sqlite3.Cursor:
+        """Execute a write and commit it atomically under a single lock span.
+
+        Doing execute() and commit() as two separate lock acquisitions on a shared
+        cross-thread connection lets another thread's commit land between them (or
+        commit this statement's still-pending write). Holding the lock across both
+        keeps each write self-contained.
+        """
+        with self._lock:
+            cur = self.connection.execute(query, params)
+            self.connection.commit()
+            return cur
 
     def executemany(self, query: str, params: list[tuple[object, ...]]) -> sqlite3.Cursor:
         with self._lock:

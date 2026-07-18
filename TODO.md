@@ -22,10 +22,11 @@
 
 ## Medium Priority
 
-- [ ] Integration tests covering full paper trading session
-- [ ] Run `ruff check .` and fix any issues
-- [ ] Run `mypy .` and fix any type errors
-- [ ] Run `pytest` and ensure all tests pass
+- [x] Integration tests covering exit / stop-loss money path (see tests/test_exit_flow.py)
+- [x] Run `ruff check .` and fix any issues
+- [x] Run `mypy .` and fix any type errors
+- [x] Run `pytest` and ensure all tests pass
+- [x] Integration test covering a full paper trading session (entry → monitor → exit) (see tests/test_full_session.py)
 
 ## Low Priority
 

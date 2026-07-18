@@ -66,28 +66,40 @@ class Startup:
         components = ApplicationComponents()
         components.config = config
 
-        db = SQLiteManager()
-        db.initialize(config.database.sqlite_path)
-        components.db = db
-        logger.info("Database initialized")
+        db: SQLiteManager | None = None
+        upstox: UpstoxBroker | None = None
+        try:
+            db = SQLiteManager()
+            db.initialize(config.database.sqlite_path)
+            components.db = db
+            logger.info("Database initialized")
 
-        components.market_cache = MarketDataCache()
-        components.pnl_engine = PnLEngine()
-        components.risk_manager = RiskManager(config.trading.stop_loss_percent)
+            components.market_cache = MarketDataCache()
+            components.pnl_engine = PnLEngine()
+            components.risk_manager = RiskManager(config.trading.stop_loss_percent)
 
-        state_manager = StateManager()
-        state_manager.initialize(config.state.state_file)
-        components.state_manager = state_manager
-        logger.info("State manager initialized")
+            state_manager = StateManager()
+            state_manager.initialize(config.state.state_file)
+            components.state_manager = state_manager
+            logger.info("State manager initialized")
 
-        upstox = UpstoxBroker(config)
-        await upstox.connect()
-        await upstox.authenticate()
-        components.upstox_broker = upstox
+            upstox = UpstoxBroker(config)
+            await upstox.connect()
+            await upstox.authenticate()
+            components.upstox_broker = upstox
 
-        paper_broker = PaperBroker(upstox, margin=config.trading.margin)
-        await paper_broker.connect()
-        components.paper_broker = paper_broker
+            paper_broker = PaperBroker(upstox, margin=config.trading.margin)
+            await paper_broker.connect()
+            components.paper_broker = paper_broker
+        except Exception as e:
+            logger.exception("Startup failed during initialization: %s", e)
+            # Release resources opened before the failure so we don't leak the DB
+            # connection or the aiohttp session.
+            if upstox is not None:
+                await upstox.disconnect()
+            if db is not None:
+                db.close()
+            raise
 
         components.instrument_resolver = InstrumentResolver(paper_broker)
 

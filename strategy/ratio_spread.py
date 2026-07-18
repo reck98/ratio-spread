@@ -20,7 +20,7 @@ from state.state_manager import StateManager
 from strategy.base_strategy import BaseStrategy
 from utils.config import AppConfig
 from utils.logging import LogManager
-from utils.models import InstrumentType, StrategyContext, Tick
+from utils.models import InstrumentType, StrategyContext, StrategyMetrics, Tick
 
 
 class RatioSpreadStrategy(BaseStrategy):
@@ -58,6 +58,11 @@ class RatioSpreadStrategy(BaseStrategy):
             config_snapshot_repo=config_snapshot_repo,
         )
         self._logger = LogManager.get_logger("strategy")
+
+    @property
+    def metrics(self) -> StrategyMetrics:
+        """Public accessor for the run metrics (used by report generation)."""
+        return self._runner.metrics
 
     async def should_trade(self, trading_date: date, instrument: InstrumentType) -> bool:
         expiry = await self._runner._resolver.get_weekly_expiry(instrument)

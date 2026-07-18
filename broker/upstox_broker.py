@@ -45,6 +45,10 @@ class UpstoxBroker(BrokerInterface):
         self._logger.info("Upstox broker session closed")
 
     async def authenticate(self) -> None:
+        # TODO(live): This does NOT validate the token — it only checks a string is
+        # present. For live trading, validate/refresh the Upstox daily token here
+        # (e.g. a lightweight profile call) so an expired token is detected at startup
+        # rather than on the first trading request.
         if self._access_token:
             self._health = BrokerHealth.CONNECTED
             self._logger.info("Authenticated with existing access token")
@@ -163,6 +167,10 @@ class UpstoxBroker(BrokerInterface):
                         return inst
                 except (ValueError, TypeError):
                     continue
+        # TODO(live): No matching contract was found — this fabricates a synthetic
+        # instrument_key/trading_symbol so paper mode can proceed. Against a real broker
+        # these invented keys resolve to a nonexistent/wrong contract; live mode must
+        # fail (or raise) here instead of returning a fake instrument.
         return {
             "instrument_key": f"NSE_FO|{symbol}{strike}{option_type}",
             "trading_symbol": f"{symbol}{expiry.strftime('%y%m%d')}{strike}{option_type}",
@@ -174,6 +182,9 @@ class UpstoxBroker(BrokerInterface):
     async def place_order(self, strategy_run_id: int, instrument_key: str, trading_symbol: str,
                           option_type: str, strike: int, side: str, quantity: int,
                           price: float) -> Order:
+        # TODO(live): This fabricates a PAPER_ order id and reports FILLED without ever
+        # calling the Upstox order-placement API. Live mode must place the real order
+        # and reflect its actual status/fill price.
         from utils.models import OptionType as OptType
         from utils.models import Side as OrdSide
         order_id = f"PAPER_{uuid.uuid4().hex[:12].upper()}"
@@ -197,6 +208,8 @@ class UpstoxBroker(BrokerInterface):
         return order
 
     async def exit_position(self, order: Order) -> Order:
+        # TODO(live): Flips status to FILLED without sending a real exit order. Live
+        # mode must place the offsetting order and reflect the actual exchange fill.
         order.order_status = OrderStatus.FILLED
         order.execution_time = datetime.now(timezone.utc)
         self._logger.info(
@@ -241,6 +254,9 @@ class UpstoxBroker(BrokerInterface):
             self._logger.info("Margin required: %.2f", required)
             return float(required)
         except Exception as e:
+            # TODO(live): Returning 0.0 on failure reads downstream as "no margin
+            # required". PaperBroker.get_margin wraps this with a configured fallback;
+            # live mode must treat a failed margin call as a hard error (block entry).
             self._logger.warning("Margin calculation failed: %s", e)
             return 0.0
 

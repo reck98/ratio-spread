@@ -8,8 +8,17 @@ class RiskManager:
         self._logger = LogManager.get_logger("strategy")
 
     def check_stop_loss(self, context: StrategyContext) -> bool:
-        if context.margin_used <= 0 or context.current_mtm >= 0:
+        if context.current_mtm >= 0:
             return False
+        if context.margin_used <= 0:
+            # No valid margin basis for the stop-loss percentage. Rather than run a
+            # losing position with NO downside protection, fail safe: force an exit.
+            self._logger.warning(
+                "Margin is %.2f (<= 0) with a losing MTM %.2f — cannot size stop-loss, "
+                "forcing exit as a safety measure",
+                context.margin_used, context.current_mtm,
+            )
+            return True
         loss_pct = abs(context.current_mtm) / context.margin_used * 100.0
         triggered = loss_pct >= self._stop_loss_percent
         if triggered:

@@ -57,7 +57,14 @@ WebSocket Tick → MarketDataCache → StrategyRunner → PnLEngine → RiskMana
 IDLE → WAITING_FOR_ENTRY → SELECTING_INSTRUMENTS → BUILDING_POSITION → ENTERED → MONITORING → EXITING → COMPLETED
 ```
 
-Any state can transition to COMPLETED on failure.
+Transitions are enforced through `StrategyStateMachine` — the runner and exit manager route
+every state change via `next_state()` (which logs an unexpected transition rather than
+raising, so a bookkeeping mismatch never crashes a live trade).
+
+`COMPLETED` is reachable directly only from the pre-position states
+(`IDLE`, `WAITING_FOR_ENTRY`, `SELECTING_INSTRUMENTS`) for failure aborts. A position-holding
+state (`BUILDING_POSITION`, `ENTERED`, `MONITORING`) must pass through `EXITING` first, so a
+run is never marked complete while it still holds open legs.
 
 ## Configuration Flow
 

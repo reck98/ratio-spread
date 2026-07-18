@@ -28,6 +28,11 @@ class WebSocketManager:
         self._logger = LogManager.get_logger("websocket")
         self._last_heartbeat: Optional[datetime] = None
         self._heartbeat_timeout = 30
+        self._max_reconnect_attempts = 5
+        self._reconnect_backoff_base = 2
+        # Cap incoming frame size (4 MiB) so a malformed/huge feed frame can't drive
+        # unbounded memory allocation.
+        self._max_msg_size = 4 * 1024 * 1024
 
     @property
     def health(self) -> BrokerHealth:
@@ -63,7 +68,7 @@ class WebSocketManager:
             ws_url = await self._get_authorized_url()
             headers = {"Authorization": f"Bearer {self._access_token}"}
             self._ws = await self._session.ws_connect(
-                ws_url, headers=headers, heartbeat=10, max_msg_size=0,
+                ws_url, headers=headers, heartbeat=10, max_msg_size=self._max_msg_size,
             )
             self._health = BrokerHealth.CONNECTED
             self._last_heartbeat = datetime.now(timezone.utc)
@@ -97,7 +102,13 @@ class WebSocketManager:
 
     async def listen(self) -> None:
         self._running = True
-        while self._running and self._ws:
+        # Supervisory loop: on any recoverable break we reconnect and keep listening
+        # instead of returning, so the feed survives more than one disconnect.
+        while self._running:
+            if not self._ws:
+                if not await self._reconnect():
+                    break
+                continue
             try:
                 msg = await self._ws.receive(timeout=self._heartbeat_timeout)
                 if msg.type == aiohttp.WSMsgType.BINARY:
@@ -105,23 +116,27 @@ class WebSocketManager:
                     await self._process_message(msg.data)
                 elif msg.type == aiohttp.WSMsgType.TEXT:
                     self._last_heartbeat = datetime.now(timezone.utc)
-                elif msg.type == aiohttp.WSMsgType.CLOSED:
-                    self._logger.warning("WebSocket closed by server")
-                    break
+                elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING):
+                    self._logger.warning("WebSocket closed by server, reconnecting")
+                    if not await self._reconnect():
+                        break
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     self._logger.warning("WebSocket error: %s", self._ws.exception())
-                    await self._reconnect()
-                    break
+                    if not await self._reconnect():
+                        break
             except asyncio.TimeoutError:
-                elapsed = (datetime.now(timezone.utc) - self._last_heartbeat).seconds if self._last_heartbeat else 0
+                elapsed = (
+                    (datetime.now(timezone.utc) - self._last_heartbeat).total_seconds()
+                    if self._last_heartbeat else 0
+                )
                 if self._last_heartbeat and elapsed > self._heartbeat_timeout:
                     self._logger.warning("Heartbeat timeout, reconnecting")
-                    await self._reconnect()
-                    break
+                    if not await self._reconnect():
+                        break
             except Exception as e:
                 self._logger.error("WebSocket listen error: %s", e)
-                await self._reconnect()
-                break
+                if not await self._reconnect():
+                    break
 
     async def _process_message(self, data: bytes) -> None:
         response = FeedResponse()
@@ -164,20 +179,59 @@ class WebSocketManager:
             return feed.firstLevelWithGreeks.ltpc.ltp
         return None
 
-    async def _reconnect(self) -> None:
+    async def _close_socket(self) -> None:
+        """Tear down the current socket/session WITHOUT stopping the listen loop."""
+        if self._ws:
+            try:
+                await self._ws.close()
+            except Exception as e:
+                self._logger.warning("Error closing websocket: %s", e)
+            self._ws = None
+        if self._session:
+            try:
+                await self._session.close()
+            except Exception as e:
+                self._logger.warning("Error closing session: %s", e)
+            self._session = None
+
+    async def _reconnect(self) -> bool:
+        """Reconnect with bounded exponential backoff. Returns True on success.
+
+        Does NOT flip ``_running`` off, so the supervisory ``listen`` loop keeps
+        running and re-subscribes after every disconnect (not just the first).
+        """
         self._health = BrokerHealth.RECONNECTING
-        self._logger.info("Attempting reconnection...")
-        await self.disconnect()
-        await asyncio.sleep(2)
-        try:
-            await self.connect()
-            if self._subscribed:
-                await self.subscribe(list(self._subscribed))
-            if self._on_disconnect:
-                self._on_disconnect()
-        except Exception as e:
-            self._health = BrokerHealth.FAILED
-            self._logger.error("Reconnection failed: %s", e)
+        await self._close_socket()
+
+        # Re-subscribe from scratch on the fresh socket.
+        keys_to_resubscribe = list(self._subscribed)
+        self._subscribed.clear()
+
+        for attempt in range(1, self._max_reconnect_attempts + 1):
+            if not self._running:
+                return False
+            delay = self._reconnect_backoff_base * attempt
+            self._logger.info(
+                "Reconnection attempt %d/%d in %ds...",
+                attempt, self._max_reconnect_attempts, delay,
+            )
+            await asyncio.sleep(delay)
+            try:
+                await self.connect()
+                if keys_to_resubscribe:
+                    await self.subscribe(keys_to_resubscribe)
+                if self._on_disconnect:
+                    self._on_disconnect()
+                self._logger.info("Reconnection succeeded on attempt %d", attempt)
+                return True
+            except Exception as e:
+                self._logger.error("Reconnection attempt %d failed: %s", attempt, e)
+
+        self._health = BrokerHealth.FAILED
+        self._logger.error(
+            "Reconnection failed after %d attempts — giving up", self._max_reconnect_attempts,
+        )
+        return False
 
     async def disconnect(self) -> None:
         self._running = False

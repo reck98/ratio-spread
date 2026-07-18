@@ -1,9 +1,11 @@
 import json
+import os
 import shutil
 from pathlib import Path
 from threading import Lock
 from typing import Any, Optional
 
+from utils.logging import LogManager
 from utils.models import StrategyContext
 
 
@@ -15,6 +17,11 @@ class StateManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
+
+    @classmethod
+    def reset(cls) -> None:
+        """Drop the singleton (used by tests to avoid cross-test leakage)."""
+        cls._instance = None
 
     def __init__(self) -> None:
         if not hasattr(self, "_initialized"):
@@ -36,7 +43,19 @@ class StateManager:
         with open(tmp_path, "w") as f:
             json.dump(data, f, indent=2, default=str)
             f.flush()
+            os.fsync(f.fileno())
         shutil.move(str(tmp_path), str(self._state_file))
+        # fsync the directory so the rename itself is durable across a power loss.
+        try:
+            dir_fd = os.open(str(self._state_file.parent), os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            # Directory fsync is unsupported on some platforms (e.g. Windows) — the
+            # temp-file + atomic replace still protects against torn writes.
+            pass
 
     def load(self) -> Optional[StrategyContext]:
         if not self._initialized or not self._state_file:
@@ -44,9 +63,18 @@ class StateManager:
         if not self._state_file.exists():
             return None
 
-        with open(self._state_file, "r") as f:
-            data = json.load(f)
-        return self._deserialize_context(data)
+        try:
+            with open(self._state_file, "r") as f:
+                data = json.load(f)
+            return self._deserialize_context(data)
+        except (json.JSONDecodeError, KeyError, ValueError, OSError) as e:
+            # A truncated/corrupt state file must not crash startup — log and start
+            # fresh rather than propagating an unhandled exception on restart.
+            LogManager.get_logger("strategy").error(
+                "Failed to load state file %s (%s) — ignoring and starting fresh",
+                self._state_file, e,
+            )
+            return None
 
     def clear(self) -> None:
         if self._state_file and self._state_file.exists():

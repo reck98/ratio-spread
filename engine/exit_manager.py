@@ -4,6 +4,7 @@ from broker.paper_broker import PaperBroker
 from database.repository import OrderRepository, PositionRepository
 from engine.market_data_cache import MarketDataCache
 from engine.pnl_engine import PnLEngine
+from engine.strategy_state_machine import StrategyStateMachine
 from state.state_manager import StateManager
 from utils.logging import LogManager
 from utils.models import ExitReason, Order, Side, StrategyContext, StrategyState
@@ -28,11 +29,22 @@ class ExitManager:
         self._logger = LogManager.get_logger("strategy")
 
     async def exit_all(self, context: StrategyContext, reason: ExitReason) -> StrategyContext:
-        context.strategy_state = StrategyState.EXITING
+        context.strategy_state = StrategyStateMachine.next_state(
+            context.strategy_state, StrategyState.EXITING, self._logger,
+        )
         context.exit_reason = reason
         exit_time = datetime.now(timezone.utc)
 
+        # Persist the EXITING state BEFORE placing any exit orders, so a crash
+        # mid-exit is recoverable (and legs already closed below are skipped on retry).
+        self._state_manager.save(context)
+
+        exit_ts = int(exit_time.timestamp())
         for pos in context.positions:
+            if pos.closed:
+                # Already exited on a prior pass (recovery/retry) — don't double-close.
+                continue
+
             instrument_key = pos.instrument_key
             ltp = self._market_cache.get_ltp(instrument_key)
             if ltp is not None:
@@ -45,7 +57,7 @@ class ExitManager:
             pos.closed = True
 
             order = Order(
-                order_id=f"EXIT_{pos.instrument_key}",
+                order_id=f"EXIT_{context.run_id or 0}_{pos.instrument_key}_{exit_ts}",
                 strategy_run_id=context.run_id or 0,
                 instrument_key=pos.instrument_key,
                 trading_symbol=pos.trading_symbol,
@@ -54,14 +66,22 @@ class ExitManager:
                 side=Side.SELL if pos.side == Side.BUY else Side.BUY,
                 quantity=pos.quantity,
                 entry_price=pos.entry_price,
-                current_price=pos.exit_price or 0,
+                current_price=pos.exit_price if pos.exit_price is not None else pos.current_price,
                 execution_time=exit_time,
             )
             self._order_repo.insert(order)
+            if pos.id is not None:
+                self._position_repo.close_position(
+                    pos.id,
+                    pos.exit_price if pos.exit_price is not None else pos.current_price,
+                    pos.realized_pnl,
+                )
 
         context.current_mtm = self._pnl_engine.calculate_total_mtm(context.positions)
         context.exit_time = exit_time
-        context.strategy_state = StrategyState.COMPLETED
+        context.strategy_state = StrategyStateMachine.next_state(
+            context.strategy_state, StrategyState.COMPLETED, self._logger,
+        )
 
         self._state_manager.save(context)
         self._logger.info(

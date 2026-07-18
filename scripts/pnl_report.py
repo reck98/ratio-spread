@@ -1,5 +1,4 @@
 import sqlite3
-from datetime import date
 from pathlib import Path
 from statistics import mean, stdev
 from typing import Any

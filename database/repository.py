@@ -21,7 +21,7 @@ class StrategyRunRepository:
         sell_call_strike: Optional[int] = None,
         sell_put_strike: Optional[int] = None,
     ) -> int:
-        cur = self.db.execute(
+        cur = self.db.execute_write(
             """INSERT INTO strategy_runs
                (trading_date, instrument, expiry_date, entry_time, margin_used,
                 atm_strike, sell_call_strike, sell_put_strike)
@@ -30,23 +30,23 @@ class StrategyRunRepository:
              entry_time.isoformat() if entry_time else None,
              margin_used, atm_strike, sell_call_strike, sell_put_strike),
         )
-        self.db.commit()
         return cur.lastrowid  # type: ignore[return-value]
 
     def update_exit(self, run_id: int, exit_time: datetime, exit_reason: str,
                     total_profit: float, stop_loss_hit: bool,
                     max_mtm: float, min_mtm: float) -> None:
-        self.db.execute(
+        self.db.execute_write(
             """UPDATE strategy_runs SET exit_time=?, exit_reason=?, total_profit=?,
                stop_loss_hit=?, max_mtm=?, min_mtm=? WHERE id=?""",
             (exit_time.isoformat(), exit_reason, total_profit,
              1 if stop_loss_hit else 0, max_mtm, min_mtm, run_id),
         )
-        self.db.commit()
 
     def get_by_date(self, trading_date: date) -> Optional[dict[str, object]]:
+        # If multiple runs exist for a date (crash-restart / double-start), return the
+        # most recent one rather than an arbitrary row.
         cur = self.db.execute(
-            "SELECT * FROM strategy_runs WHERE trading_date = ?",
+            "SELECT * FROM strategy_runs WHERE trading_date = ? ORDER BY id DESC LIMIT 1",
             (trading_date.isoformat(),),
         )
         row = cur.fetchone()
@@ -58,7 +58,7 @@ class OrderRepository:
         self.db = db
 
     def insert(self, order: Order) -> None:
-        self.db.execute(
+        self.db.execute_write(
             """INSERT INTO orders
                (order_id, strategy_run_id, instrument_key, trading_symbol,
                 option_type, strike, side, quantity, entry_price,
@@ -69,7 +69,6 @@ class OrderRepository:
              order.side.value, order.quantity, order.entry_price,
              order.execution_time.isoformat(), order.order_status.value),
         )
-        self.db.commit()
 
     def get_by_run(self, strategy_run_id: int) -> list[dict[str, object]]:
         cur = self.db.execute(
@@ -84,7 +83,7 @@ class PositionRepository:
         self.db = db
 
     def insert(self, run_id: int, pos: Position) -> None:
-        self.db.execute(
+        cur = self.db.execute_write(
             """INSERT INTO positions
                (strategy_run_id, instrument_key, trading_symbol, option_type,
                 strike, expiry, side, quantity, entry_price)
@@ -93,14 +92,13 @@ class PositionRepository:
              pos.strike, pos.expiry.isoformat(), pos.side.value,
              pos.quantity, pos.entry_price),
         )
-        self.db.commit()
+        pos.id = cur.lastrowid  # type: ignore[assignment]
 
     def close_position(self, position_id: int, exit_price: float, realized_pnl: float) -> None:
-        self.db.execute(
+        self.db.execute_write(
             "UPDATE positions SET exit_price=?, realized_pnl=?, closed=1 WHERE id=?",
             (exit_price, realized_pnl, position_id),
         )
-        self.db.commit()
 
     def get_open_by_run(self, strategy_run_id: int) -> list[dict[str, object]]:
         cur = self.db.execute(
@@ -115,11 +113,10 @@ class PnLHistoryRepository:
         self.db = db
 
     def insert(self, run_id: int, timestamp: datetime, mtm: float, profit_percentage: float) -> None:
-        self.db.execute(
+        self.db.execute_write(
             "INSERT INTO pnl_history (strategy_run_id, timestamp, mtm, profit_percentage) VALUES (?, ?, ?, ?)",
             (run_id, timestamp.isoformat(), mtm, profit_percentage),
         )
-        self.db.commit()
 
 
 class DailySummaryRepository:
@@ -130,20 +127,20 @@ class DailySummaryRepository:
                gross_loss: float, net_profit: float, max_mtm: float,
                min_mtm: float, exit_reason: str, margin_used: float,
                strategy_version: str = "ratio_spread_v1.0") -> None:
-        self.db.execute(
+        self.db.execute_write(
             """INSERT INTO daily_summary
                (trading_date, instrument, gross_profit, gross_loss, net_profit,
                 max_mtm, min_mtm, exit_reason, margin_used, strategy_version)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(trading_date) DO UPDATE SET
-               gross_profit=excluded.gross_profit, gross_loss=excluded.gross_loss,
-               net_profit=excluded.net_profit, max_mtm=excluded.max_mtm,
-               min_mtm=excluded.min_mtm, exit_reason=excluded.exit_reason,
-               margin_used=excluded.margin_used""",
+               instrument=excluded.instrument, gross_profit=excluded.gross_profit,
+               gross_loss=excluded.gross_loss, net_profit=excluded.net_profit,
+               max_mtm=excluded.max_mtm, min_mtm=excluded.min_mtm,
+               exit_reason=excluded.exit_reason, margin_used=excluded.margin_used,
+               strategy_version=excluded.strategy_version""",
             (trading_date.isoformat(), instrument, gross_profit, gross_loss,
              net_profit, max_mtm, min_mtm, exit_reason, margin_used, strategy_version),
         )
-        self.db.commit()
 
 
 class ConfigSnapshotRepository:
@@ -151,8 +148,7 @@ class ConfigSnapshotRepository:
         self.db = db
 
     def save(self, run_id: int, config: dict[str, object]) -> None:
-        self.db.execute(
+        self.db.execute_write(
             "INSERT INTO configuration_snapshot (strategy_run_id, config_json) VALUES (?, ?)",
             (run_id, json.dumps(config)),
         )
-        self.db.commit()
