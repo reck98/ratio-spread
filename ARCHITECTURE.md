@@ -12,20 +12,23 @@ app/main.py (entry point)
   ├── app/scheduler.py   — time triggers
   ├── app/shutdown.py    — graceful shutdown
   │
-  ├── strategy/ratio_spread.py
-  │     └── engine/strategy_runner.py
-  │           ├── engine/pnl_engine.py
-  │           ├── engine/risk_manager.py
-  │           ├── engine/exit_manager.py
-  │           ├── engine/market_data_cache.py
-  │           └── engine/strategy_state_machine.py
+  ├── strategy/
+  │     ├── base_strategy.py    # Abstract base
+  │     └── ratio_spread.py
+  │           └── engine/strategy_runner.py
+  │                 ├── engine/pnl_engine.py
+  │                 ├── engine/risk_manager.py
+  │                 ├── engine/exit_manager.py
+  │                 ├── engine/market_data_cache.py
+  │                 └── engine/strategy_state_machine.py
   │
   ├── broker/
   │     ├── broker_interface.py
   │     ├── upstox_broker.py
   │     ├── paper_broker.py
   │     ├── websocket_client.py
-  │     └── instrument_resolver.py
+  │     ├── instrument_resolver.py
+  │     └── MarketDataFeed_pb2.py   # Protobuf stubs
   │
   ├── database/
   │     ├── sqlite_manager.py
