@@ -1,0 +1,22 @@
+2026-07-14 09:27:00 INFO     websocket       Got authorized WebSocket URL
+2026-07-14 09:27:00 INFO     websocket       WebSocket connected
+2026-07-14 09:27:00 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|51377', 'NSE_FO|51378', 'NSE_FO|51385', 'NSE_FO|51371']
+2026-07-14 10:36:58 WARNING  websocket       Heartbeat timeout, reconnecting
+2026-07-14 10:36:58 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-14 10:37:00 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-14 10:37:00 ERROR    websocket       Reconnection attempt 1 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-14 10:37:00 INFO     websocket       Reconnection attempt 2/5 in 4s...
+2026-07-14 12:28:37 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-14 12:28:37 ERROR    websocket       Reconnection attempt 2 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-14 12:28:37 INFO     websocket       Reconnection attempt 3/5 in 6s...
+2026-07-14 13:09:13 INFO     websocket       Got authorized WebSocket URL
+2026-07-14 13:09:14 INFO     websocket       WebSocket connected
+2026-07-14 13:09:14 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|51378', 'NSE_FO|51371', 'NSE_FO|51385', 'NSE_FO|51377']
+2026-07-14 13:09:14 INFO     websocket       Reconnection succeeded on attempt 3
+2026-07-14 13:31:40 WARNING  websocket       Heartbeat timeout, reconnecting
+2026-07-14 13:31:41 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-14 13:31:43 INFO     websocket       Got authorized WebSocket URL
+2026-07-14 13:31:43 INFO     websocket       WebSocket connected
+2026-07-14 13:31:43 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|51378', 'NSE_FO|51371', 'NSE_FO|51385', 'NSE_FO|51377']
+2026-07-14 13:31:43 INFO     websocket       Reconnection succeeded on attempt 1
+2026-07-14 15:27:00 INFO     websocket       WebSocket disconnected

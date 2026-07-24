@@ -1,0 +1,14 @@
+2026-07-02 10:32:17 INFO     websocket       WebSocket disconnected
+2026-07-02 10:33:26 INFO     websocket       Got authorized WebSocket URL
+2026-07-02 10:33:26 INFO     websocket       WebSocket connected
+2026-07-02 10:33:27 INFO     websocket       Subscribed to 4 instruments: ['BSE_FO|820438', 'BSE_FO|820602', 'BSE_FO|821038', 'BSE_FO|821030']
+2026-07-02 11:11:53 ERROR    websocket       WebSocket error: No PONG received after 5.0 seconds
+2026-07-02 11:13:35 INFO     websocket       WebSocket disconnected
+2026-07-02 11:13:37 INFO     websocket       Got authorized WebSocket URL
+2026-07-02 11:13:38 INFO     websocket       WebSocket connected
+2026-07-02 11:13:38 INFO     websocket       Subscribed to 4 instruments: ['BSE_FO|820438', 'BSE_FO|820602', 'BSE_FO|821038', 'BSE_FO|821030']
+2026-07-02 12:01:37 INFO     websocket       WebSocket disconnected
+2026-07-02 12:01:39 INFO     websocket       Got authorized WebSocket URL
+2026-07-02 12:01:39 INFO     websocket       WebSocket connected
+2026-07-02 12:01:39 INFO     websocket       Subscribed to 4 instruments: ['BSE_FO|820438', 'BSE_FO|820602', 'BSE_FO|821038', 'BSE_FO|821030']
+2026-07-02 15:27:00 INFO     websocket       WebSocket disconnected

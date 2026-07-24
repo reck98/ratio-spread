@@ -1,0 +1,9 @@
+Session Report — 2026-07-09
+
+Strategy State: COMPLETED
+Exit Reason: SCHEDULED_EXIT
+Highest MTM: Rs.971.00
+Lowest MTM: Rs.-3,602.00
+Max Favorable Excursion: Rs.971.00
+Max Adverse Excursion: Rs.-3,602.00
+Final PnL: Rs.809.00

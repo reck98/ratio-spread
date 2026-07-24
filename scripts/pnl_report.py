@@ -128,6 +128,33 @@ def compute_metrics(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def group_by_month(runs: list[dict], pnl_history: dict) -> list[dict]:
+    """Group runs by calendar month and compute metrics for each."""
+    monthly_runs: dict[str, list[dict]] = {}
+    for r in runs:
+        ym = r["trading_date"][:7]
+        monthly_runs.setdefault(ym, []).append(r)
+
+    months = sorted(monthly_runs.keys())
+    last_six = months[-6:] if len(months) > 6 else months
+
+    result = []
+    for ym in last_six:
+        subset = monthly_runs[ym]
+        subset_ids = {r["id"] for r in subset}
+        filtered_pnl = {
+            rid: mtm for rid, mtm in pnl_history.items() if rid in subset_ids
+        }
+        metrics = compute_metrics({
+            "runs": subset,
+            "pnl_history": filtered_pnl,
+        })
+        metrics["month"] = ym
+        result.append(metrics)
+
+    return result
+
+
 def render(data: dict[str, Any]) -> None:
     runs = data["runs"]
     metrics = compute_metrics(data)
@@ -150,6 +177,22 @@ def render(data: dict[str, Any]) -> None:
     console.print(header_panel)
     console.print()
 
+    # ── Section 1: Last 10 Days ──
+    last_10_runs = runs[-10:]
+    last_10_ids = {r["id"] for r in last_10_runs}
+    last_10_positions = [
+        p for p in data["positions"]
+        if p.get("strategy_run_id") in last_10_ids
+    ]
+
+    section_panel = Panel(
+        f"Showing last [cyan]{len(last_10_runs)}[/] trading days",
+        title="[bold]Section 1: Last 10 Days[/]",
+        border_style="magenta",
+    )
+    console.print(section_panel)
+    console.print()
+
     day_table = Table(
         title="Per-Day Summary",
         title_style="bold",
@@ -164,7 +207,7 @@ def render(data: dict[str, Any]) -> None:
     day_table.add_column("RoC", justify="right")
     day_table.add_column("Max DD", justify="right")
 
-    for r in runs:
+    for r in last_10_runs:
         dd = 0.0
         rid = r["id"]
         if rid in data["pnl_history"] and data["pnl_history"][rid]:
@@ -198,7 +241,7 @@ def render(data: dict[str, Any]) -> None:
     console.print(day_table)
     console.print()
 
-    if data["positions"]:
+    if last_10_positions:
         pos_table = Table(
             title="Position Breakdown",
             title_style="bold",
@@ -214,7 +257,7 @@ def render(data: dict[str, Any]) -> None:
         pos_table.add_column("PnL", justify="right")
 
         run_lookup = {r["id"]: r for r in runs}
-        for p in data["positions"]:
+        for p in last_10_positions:
             run = run_lookup.get(p.get("strategy_run_id", 0))
             pnl = p.get("realized_pnl", 0) or 0
             pnl_text = Text(fmt_rs(pnl))
@@ -232,6 +275,64 @@ def render(data: dict[str, Any]) -> None:
         console.print(pos_table)
         console.print()
 
+    # ── Section 2: Last 6 Months ──
+    months_data = group_by_month(runs, data["pnl_history"])
+    if months_data:
+        section_panel = Panel(
+            f"Showing [cyan]{len(months_data)}[/] months",
+            title="[bold]Section 2: Last 6 Months[/]",
+            border_style="magenta",
+        )
+        console.print(section_panel)
+        console.print()
+
+        month_table = Table(
+            title="Monthly Summary",
+            title_style="bold",
+            header_style="bold cyan",
+            border_style="blue",
+        )
+        month_table.add_column("Month", style="white")
+        month_table.add_column("Trades", justify="right")
+        month_table.add_column("W/L (Win%)", justify="center")
+        month_table.add_column("Total PnL", justify="right")
+        month_table.add_column("Avg PnL", justify="right")
+        month_table.add_column("Best Day", justify="right")
+        month_table.add_column("Worst Day", justify="right")
+        month_table.add_column("Margin", justify="right")
+        month_table.add_column("RoC", justify="right")
+        month_table.add_column("Max DD", justify="right")
+        month_table.add_column("Sharpe", justify="right")
+
+        for m in reversed(months_data):
+            pnl_total = m.get("total_profit", 0)
+            pnl_str = Text(fmt_rs(pnl_total))
+            pnl_str.stylize("green" if pnl_total >= 0 else "red")
+
+            best_day = m.get("best_day")
+            worst_day = m.get("worst_day")
+            best_str = f"{fmt_rs(best_day['total_profit'])}\n({best_day['trading_date']})" if best_day else "N/A"
+            worst_str = f"{fmt_rs(worst_day['total_profit'])}\n({worst_day['trading_date']})" if worst_day else "N/A"
+            sharpe_str = f"{m['sharp_ratio']:.2f}" if m.get("sharp_ratio") is not None else "N/A"
+
+            month_table.add_row(
+                m["month"],
+                str(m["total_trades"]),
+                f"{m['win_count']}/{m['loss_count']} ({m['win_rate']:.1f}%)",
+                pnl_str,
+                fmt_rs(m["avg_pnl"]),
+                best_str,
+                worst_str,
+                f"Rs.{m['total_margin']:,.2f}",
+                f"{m['overall_roc']:.2f}%",
+                f"{m['max_drawdown_pct']:.2f}%",
+                sharpe_str,
+            )
+
+        console.print(month_table)
+        console.print()
+
+    # ── Section 3: Overall Statistics ──
     stat_table = Table(
         title="Overall Statistics",
         title_style="bold",

@@ -1,0 +1,12 @@
+2026-07-02 10:32:16 INFO     orders          Paper broker connected (simulated)
+2026-07-02 10:32:17 INFO     orders          Paper broker disconnected
+2026-07-02 10:33:25 INFO     orders          Paper broker connected (simulated)
+2026-07-02 10:33:26 INFO     orders          FILLED BUY 1 SENSEX77200.0CE CE @ 148.65
+2026-07-02 10:33:26 INFO     orders          FILLED BUY 1 SENSEX77200.0PE PE @ 149.65
+2026-07-02 10:33:26 INFO     orders          FILLED SELL 3 SENSEX77500.0CE CE @ 49.20
+2026-07-02 10:33:26 INFO     orders          FILLED SELL 3 SENSEX76800.0PE PE @ 36.50
+2026-07-02 11:13:35 INFO     orders          Paper broker disconnected
+2026-07-02 11:13:37 INFO     orders          Paper broker connected (simulated)
+2026-07-02 12:01:37 INFO     orders          Paper broker disconnected
+2026-07-02 12:01:38 INFO     orders          Paper broker connected (simulated)
+2026-07-02 15:27:00 INFO     orders          Paper broker disconnected

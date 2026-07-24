@@ -1,0 +1,9 @@
+Statistics - 2026-07-02
+
+Total Positions: 4
+Won: 3
+Lost: 1
+Win Rate: 75.0%
+Gross PnL: Rs.5082.00
+Margin Used: Rs.500000.00
+Return on Capital: 1.02%

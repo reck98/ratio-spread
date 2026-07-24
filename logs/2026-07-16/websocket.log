@@ -1,0 +1,42 @@
+2026-07-16 10:15:45 INFO     websocket       WebSocket disconnected
+2026-07-16 10:16:54 INFO     websocket       WebSocket disconnected
+2026-07-16 10:18:55 INFO     websocket       Got authorized WebSocket URL
+2026-07-16 10:18:55 INFO     websocket       WebSocket connected
+2026-07-16 10:18:55 INFO     websocket       Subscribed to 4 instruments: ['BSE_FO|827798', 'BSE_FO|829489', 'BSE_FO|826336', 'BSE_FO|828466']
+2026-07-16 12:18:28 WARNING  websocket       WebSocket error: No PONG received after 5.0 seconds
+2026-07-16 12:18:28 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-16 12:18:30 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:30 ERROR    websocket       Reconnection attempt 1 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:30 INFO     websocket       Reconnection attempt 2/5 in 4s...
+2026-07-16 12:18:34 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:34 ERROR    websocket       Reconnection attempt 2 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:34 INFO     websocket       Reconnection attempt 3/5 in 6s...
+2026-07-16 12:18:40 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:40 ERROR    websocket       Reconnection attempt 3 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:40 INFO     websocket       Reconnection attempt 4/5 in 8s...
+2026-07-16 12:18:48 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:48 ERROR    websocket       Reconnection attempt 4 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:48 INFO     websocket       Reconnection attempt 5/5 in 10s...
+2026-07-16 12:18:59 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:59 ERROR    websocket       Reconnection attempt 5 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 12:18:59 ERROR    websocket       Reconnection failed after 5 attempts — giving up
+2026-07-16 12:25:55 INFO     websocket       WebSocket disconnected
+2026-07-16 12:25:59 INFO     websocket       Got authorized WebSocket URL
+2026-07-16 12:25:59 INFO     websocket       WebSocket connected
+2026-07-16 12:25:59 INFO     websocket       Subscribed to 4 instruments: ['BSE_FO|827798', 'BSE_FO|829489', 'BSE_FO|826336', 'BSE_FO|828466']
+2026-07-16 13:36:06 WARNING  websocket       Heartbeat timeout, reconnecting
+2026-07-16 13:36:07 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-16 13:36:09 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 13:36:09 ERROR    websocket       Reconnection attempt 1 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 13:36:09 INFO     websocket       Reconnection attempt 2/5 in 4s...
+2026-07-16 14:54:05 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 14:54:05 ERROR    websocket       Reconnection attempt 2 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-16 14:54:05 INFO     websocket       Reconnection attempt 3/5 in 6s...
+2026-07-16 14:54:22 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [The network location cannot be reached. For information about network troubleshooting, see Windows Help]
+2026-07-16 14:54:22 ERROR    websocket       Reconnection attempt 3 failed: Cannot connect to host api.upstox.com:443 ssl:default [The network location cannot be reached. For information about network troubleshooting, see Windows Help]
+2026-07-16 14:54:22 INFO     websocket       Reconnection attempt 4/5 in 8s...
+2026-07-16 14:54:30 INFO     websocket       Got authorized WebSocket URL
+2026-07-16 14:54:30 INFO     websocket       WebSocket connected
+2026-07-16 14:54:30 INFO     websocket       Subscribed to 4 instruments: ['BSE_FO|828466', 'BSE_FO|827798', 'BSE_FO|829489', 'BSE_FO|826336']
+2026-07-16 14:54:30 INFO     websocket       Reconnection succeeded on attempt 4
+2026-07-16 15:27:00 INFO     websocket       WebSocket disconnected

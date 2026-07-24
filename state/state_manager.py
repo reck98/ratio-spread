@@ -110,6 +110,7 @@ class StateManager:
                     "expiry": str(p.expiry),
                     "side": p.side.value,
                     "quantity": p.quantity,
+                    "id": p.id,
                     "entry_price": p.entry_price,
                     "current_price": p.current_price,
                     "exit_price": p.exit_price,
@@ -130,6 +131,7 @@ class StateManager:
         for p in data.get("positions", []):
             positions.append(
                 Position(
+                    id=p.get("id"),
                     instrument_key=p["instrument_key"],
                     trading_symbol=p["trading_symbol"],
                     option_type=OptionType(p["option_type"]),

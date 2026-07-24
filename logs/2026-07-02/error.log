@@ -1,0 +1,15 @@
+2026-07-02 15:27:00 ERROR    error           Fatal application error: 'charmap' codec can't encode character '\u20b9' in position 13: character maps to <undefined>
+Traceback (most recent call last):
+  File "E:\Development\PlayGround\ratio-spread\app\main.py", line 32, in run
+    await self._resume_monitoring(recovered)
+  File "E:\Development\PlayGround\ratio-spread\app\main.py", line 108, in _resume_monitoring
+    await self._generate_reports(final_context)
+  File "E:\Development\PlayGround\ratio-spread\app\main.py", line 141, in _generate_reports
+    self._components.pnl_report.generate(context, report_dir)  # type: ignore[union-attr]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Development\PlayGround\ratio-spread\reports\pnl_report.py", line 47, in generate
+    f.write(f"Margin Used: ₹{context.margin_used:,.2f}\n")
+  File "C:\Users\aashi\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u20b9' in position 13: character maps to <undefined>

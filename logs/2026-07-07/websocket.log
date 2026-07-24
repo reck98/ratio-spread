@@ -1,0 +1,43 @@
+2026-07-07 03:40:53 INFO     websocket       WebSocket disconnected
+2026-07-07 03:41:05 INFO     websocket       WebSocket disconnected
+2026-07-07 03:51:22 INFO     websocket       WebSocket disconnected
+2026-07-07 04:19:24 INFO     websocket       WebSocket disconnected
+2026-07-07 04:56:29 INFO     websocket       WebSocket disconnected
+2026-07-07 04:56:33 INFO     websocket       WebSocket disconnected
+2026-07-07 05:11:14 INFO     websocket       WebSocket disconnected
+2026-07-07 05:16:23 INFO     websocket       WebSocket disconnected
+2026-07-07 09:27:00 INFO     websocket       WebSocket disconnected
+2026-07-07 09:41:41 INFO     websocket       WebSocket disconnected
+2026-07-07 10:30:43 INFO     websocket       WebSocket disconnected
+2026-07-07 10:35:05 INFO     websocket       WebSocket disconnected
+2026-07-07 10:35:18 INFO     websocket       Got authorized WebSocket URL
+2026-07-07 10:35:18 INFO     websocket       WebSocket connected
+2026-07-07 10:35:18 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|44662', 'NSE_FO|44663', 'NSE_FO|44666', 'NSE_FO|44655']
+2026-07-07 14:46:57 WARNING  websocket       WebSocket error: No PONG received after 5.0 seconds
+2026-07-07 14:46:57 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-07 14:46:59 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:46:59 ERROR    websocket       Reconnection attempt 1 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:46:59 INFO     websocket       Reconnection attempt 2/5 in 4s...
+2026-07-07 14:47:03 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:03 ERROR    websocket       Reconnection attempt 2 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:03 INFO     websocket       Reconnection attempt 3/5 in 6s...
+2026-07-07 14:47:09 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:09 ERROR    websocket       Reconnection attempt 3 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:09 INFO     websocket       Reconnection attempt 4/5 in 8s...
+2026-07-07 14:47:17 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:17 ERROR    websocket       Reconnection attempt 4 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:17 INFO     websocket       Reconnection attempt 5/5 in 10s...
+2026-07-07 14:47:38 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:38 ERROR    websocket       Reconnection attempt 5 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-07 14:47:38 ERROR    websocket       Reconnection failed after 5 attempts — giving up
+2026-07-07 14:58:41 INFO     websocket       WebSocket disconnected
+2026-07-07 14:58:45 INFO     websocket       Got authorized WebSocket URL
+2026-07-07 14:58:47 INFO     websocket       WebSocket connected
+2026-07-07 14:58:47 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|44662', 'NSE_FO|44663', 'NSE_FO|44666', 'NSE_FO|44655']
+2026-07-07 15:17:46 WARNING  websocket       WebSocket error: No PONG received after 5.0 seconds
+2026-07-07 15:17:46 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-07 15:18:22 INFO     websocket       Got authorized WebSocket URL
+2026-07-07 15:18:33 INFO     websocket       WebSocket connected
+2026-07-07 15:18:33 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|44662', 'NSE_FO|44666', 'NSE_FO|44655', 'NSE_FO|44663']
+2026-07-07 15:18:33 INFO     websocket       Reconnection succeeded on attempt 1
+2026-07-07 15:27:00 INFO     websocket       WebSocket disconnected

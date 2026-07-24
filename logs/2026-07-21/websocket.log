@@ -1,0 +1,23 @@
+2026-07-21 12:18:03 INFO     websocket       WebSocket disconnected
+2026-07-21 12:18:26 INFO     websocket       Got authorized WebSocket URL
+2026-07-21 12:18:26 INFO     websocket       WebSocket connected
+2026-07-21 12:18:26 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|57346', 'NSE_FO|57347', 'NSE_FO|57350', 'NSE_FO|57343']
+2026-07-21 12:27:10 WARNING  websocket       WebSocket error: No PONG received after 5.0 seconds
+2026-07-21 12:27:10 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-21 12:27:12 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-21 12:27:12 ERROR    websocket       Reconnection attempt 1 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-21 12:27:12 INFO     websocket       Reconnection attempt 2/5 in 4s...
+2026-07-21 12:27:16 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-21 12:27:16 ERROR    websocket       Reconnection attempt 2 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-21 12:27:16 INFO     websocket       Reconnection attempt 3/5 in 6s...
+2026-07-21 12:27:49 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [The network connection was aborted by the local system]
+2026-07-21 12:27:49 ERROR    websocket       Reconnection attempt 3 failed: Cannot connect to host api.upstox.com:443 ssl:default [The network connection was aborted by the local system]
+2026-07-21 12:27:49 INFO     websocket       Reconnection attempt 4/5 in 8s...
+2026-07-21 12:27:57 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-21 12:27:57 ERROR    websocket       Reconnection attempt 4 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-21 12:27:57 INFO     websocket       Reconnection attempt 5/5 in 10s...
+2026-07-21 12:28:29 INFO     websocket       Got authorized WebSocket URL
+2026-07-21 12:28:29 INFO     websocket       WebSocket connected
+2026-07-21 12:28:29 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|57347', 'NSE_FO|57343', 'NSE_FO|57346', 'NSE_FO|57350']
+2026-07-21 12:28:29 INFO     websocket       Reconnection succeeded on attempt 5
+2026-07-21 15:27:00 INFO     websocket       WebSocket disconnected

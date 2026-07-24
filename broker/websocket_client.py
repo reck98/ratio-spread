@@ -74,6 +74,8 @@ class WebSocketManager:
             self._last_heartbeat = datetime.now(timezone.utc)
             self._logger.info("WebSocket connected")
         except Exception as e:
+            await self._session.close()
+            self._session = None
             self._health = BrokerHealth.FAILED
             self._logger.error("WebSocket connection failed: %s", e)
             raise

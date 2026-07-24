@@ -9,10 +9,10 @@ dist/
 build/
 
 # Project data / logs / reports
-data/
-logs/
-reports/
-state/position_state.json
+# data/
+# logs/
+# reports/
+# state/position_state.json
 
 # IDE
 .vscode/
