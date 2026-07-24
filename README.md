@@ -1,8 +1,62 @@
 # Ratio Spread Bot
 
-Fully automated expiry-day **Ratio Spread** algorithmic trading system for **NIFTY** and **SENSEX** weekly options.
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+[![Status](https://img.shields.io/badge/status-paper%20trading-yellow)](config/config.yaml)
+[![Tests](https://img.shields.io/badge/tests-48%20passing-green)](tests/)
+[![Code Style](https://img.shields.io/badge/code%20style-black%20%7C%20ruff-black)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-not%20yet%20selected-lightgrey)]()
 
-**Mode:** Paper Trading (v0.2.0) — no real orders sent to broker.
+Fully automated expiry-day **Ratio Spread** algorithmic trading system for **NIFTY** and **SENSEX** weekly options. Connects to **Upstox** for real-time market data and executes in **paper trading mode** (no real orders sent to broker).
+
+> **Version:** v0.2.0 | **Requires:** Python 3.12+
+
+---
+
+## Features
+
+- **Fully automated** — entry, monitoring, and exit on expiry day with no manual intervention
+- **Paper trading engine** — simulated execution at last traded price (no capital at risk)
+- **Real-time market data** — Upstox WebSocket feed with protobuf-decoded ticks
+- **Config-driven strategy** — all parameters in YAML, validated via Pydantic
+- **SQLite trade persistence** — WAL-mode database with repository pattern for all trade history
+- **Crash recovery** — atomic JSON state file enables mid-session restart without data loss
+- **Rich CLI reports** — per-session PnL, trade details, session statistics, and aggregated metrics
+- **Structured logging** — per-day, per-category log files (7 channels)
+- **State machine execution** — enforced lifecycle prevents invalid state transitions
+- **Unit tested** — 48 tests across 9 test suites with strict typing (mypy) and linting (ruff)
+
+---
+
+## Strategy Overview
+
+A **Ratio Spread** is an options strategy that combines long and short positions to capture time decay (theta) while limiting directional risk. This implementation trades a **1:N ratio** — buying one ATM option and selling multiple OTM options on each side.
+
+### Position Construction
+
+```
+Entry (09:27 IST)
+  ├── Buy  1 ATM  Call  (long  premium)
+  ├── Buy  1 ATM  Put   (long  premium)
+  ├── Sell N OTM  Call  (short premium)
+  └── Sell N OTM  Put   (short premium)
+
+  Goal: Capture expiry-day theta decay on the short legs
+        while maintaining a defined risk profile.
+```
+
+- **Instruments:** NIFTY weekly expiries (primary), SENSEX weekly expiries (fallback)
+- **Entry time:** 09:27 IST (configurable)
+- **Exit time:** 15:27 IST (configurable), or immediately on 1% stop-loss
+- **Sell multiplier:** Configurable (`sell_multiplier` determines N — default 3)
+
+### Current Assumptions
+
+- Weekly expiries only (no monthly or quarterly)
+- NIFTY is preferred; SENSEX is used if NIFTY has no expiry today
+- One trade per day (no re-entry after exit)
+- Paper trading only (no real order placement)
+- Sell multiplier is configurable per run
+- No re-entry after a position is exited
 
 ---
 
@@ -36,7 +90,7 @@ copy .env.template .env
 
 ### config.yaml (`config/config.yaml`)
 
-All strategy parameters are here — no hardcoded values:
+All strategy parameters live in this file — no hardcoded values:
 
 ```yaml
 config_version: "1.0"
@@ -84,6 +138,24 @@ reports:
   directory: reports/
 ```
 
+### Parameter Reference
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `margin` | Total available margin for position sizing (₹) | `650000` |
+| `entry_time` | Scheduled entry time (IST) | `"09:27:00"` |
+| `exit_time` | Scheduled exit time (IST) | `"15:27:00"` |
+| `stop_loss_percent` | Maximum acceptable loss as % of margin | `1.0` |
+| `strike_interval` | ATM strike rounding interval (points) | `50` |
+| `buy_lots` | Number of lots to buy per ATM leg | `1` |
+| `sell_multiplier` | Number of lots to sell per OTM leg (ratio) | `3` |
+| `monitor_interval` | Safety timer wake-up interval (seconds) | `1` |
+| `lot_sizes` | Contract lot size per instrument | `NIFTY: 65`, `SENSEX: 20` |
+| `paper_trading` | Enable paper trading mode | `true` |
+| `logging.level` | Logging verbosity | `INFO` |
+| `database.sqlite_path` | Path to SQLite database file | `data/trading.db` |
+| `state.state_file` | Path to crash-recovery state file | `state/position_state.json` |
+
 ### .env File
 
 ```env
@@ -124,11 +196,183 @@ The built-in safeguard ensures: if started after 09:32 (5 min grace), it skips t
 
 ---
 
+## Architecture
+
+### System Overview
+
+Event-driven paper trading system for expiry-day NIFTY/SENSEX ratio spreads.
+
+### Module Relationships
+
+```
+app/main.py (entry point)
+  ├── app/startup.py     — dependency injection
+  ├── app/scheduler.py   — time triggers
+  ├── app/shutdown.py    — graceful shutdown
+  │
+  ├── strategy/
+  │     ├── base_strategy.py    # Abstract base
+  │     └── ratio_spread.py
+  │           └── engine/strategy_runner.py
+  │                 ├── engine/pnl_engine.py
+  │                 ├── engine/risk_manager.py
+  │                 ├── engine/exit_manager.py
+  │                 ├── engine/market_data_cache.py
+  │                 └── engine/strategy_state_machine.py
+  │
+  ├── broker/
+  │     ├── broker_interface.py
+  │     ├── upstox_broker.py
+  │     ├── paper_broker.py
+  │     ├── websocket_client.py
+  │     ├── instrument_resolver.py
+  │     └── MarketDataFeed_pb2.py   # Protobuf stubs
+  │
+  ├── database/
+  │     ├── sqlite_manager.py
+  │     └── repository.py
+  │
+  ├── state/state_manager.py
+  ├── reports/ (4 report generators)
+  └── utils/
+        ├── config.py
+        ├── logging.py
+        └── models.py
+```
+
+### Data Flow
+
+```mermaid
+flowchart LR
+    S[Scheduler] --> SR[Strategy Runner]
+    WS[WebSocket] --> MDC[Market Data Cache]
+    MDC --> SR
+    SR --> PE[PnL Engine]
+    PE --> RM[Risk Manager]
+    RM --> EM[Exit Manager]
+    SR --> SM[State Manager<br/>JSON file]
+    SR --> DB[(SQLite<br/>Database)]
+    SR --> RPT[Reports<br/>Rich CLI]
+```
+
+### Execution State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> WAITING_FOR_ENTRY : expiry detected
+    WAITING_FOR_ENTRY --> SELECTING_INSTRUMENTS : entry time reached
+    SELECTING_INSTRUMENTS --> BUILDING_POSITION : strikes resolved
+    BUILDING_POSITION --> ENTERED : orders placed
+    ENTERED --> MONITORING : position live
+    MONITORING --> EXITING : stop-loss / scheduled exit
+    EXITING --> COMPLETED : all legs closed
+    IDLE --> COMPLETED : no expiry today
+    WAITING_FOR_ENTRY --> COMPLETED : entry window missed
+    SELECTING_INSTRUMENTS --> COMPLETED : resolution failed
+```
+
+| State | Description |
+|-------|-------------|
+| `IDLE` | System initialized, waiting for expiry detection |
+| `WAITING_FOR_ENTRY` | Expiry confirmed, waiting for entry time |
+| `SELECTING_INSTRUMENTS` | Resolving ATM strikes and sell strikes from option chain |
+| `BUILDING_POSITION` | Placing orders and persisting position data |
+| `ENTERED` | Position placed, transitioning to monitoring |
+| `MONITORING` | Active position — per-tick MTM and stop-loss evaluation |
+| `EXITING` | Exiting all legs (scheduled, stop-loss, or crash recovery) |
+| `COMPLETED` | Session finalized, reports generated |
+
+> **Note:** Position-holding states (`BUILDING_POSITION`, `ENTERED`, `MONITORING`) must pass through `EXITING` before reaching `COMPLETED`. This ensures open legs are never left unclosed.
+
+### Strategy Flow
+
+```
+08:00 Start (via Task Scheduler)
+  → Initialize config, DB, WebSocket
+  → Check NIFTY expiry → if not, check SENSEX
+  → If no expiry today → shutdown
+
+09:27 Enter ratio spread
+  → Select ATM strikes, construct 1:N ratio spread
+  → Buy 1 ATM Call + 1 ATM Put
+  → Sell N OTM Calls + N OTM Puts (sell_multiplier from config)
+  → Transition to ENTERED → MONITORING state
+
+09:27 – 15:27 Monitor (per-tick + safety timer)
+  → On every market tick: recalculate MTM, check stop-loss
+  → Every 1 second: safety timer re-evaluates MTM & stop-loss
+  → If loss >= 1% of margin → exit immediately (stop-loss)
+
+15:27 Exit all positions (if not already out)
+  → Transition to EXITING, place crash-recoverable exit orders
+  → Generate reports, save final state
+  → Shutdown
+```
+
+### Crash Recovery
+
+If the application crashes mid-session, restarting auto-detects the saved state in `state/position_state.json` and resumes monitoring without re-entering.
+
+---
+
+## Example Trading Session
+
+The following is a **simulated example** of console output during a trading session. Actual results will vary.
+
+```
+2026-07-01 08:00:15 — System initialized
+2026-07-01 08:00:16 — Today is NIFTY expiry — trading
+2026-07-01 09:27:00 — Entry window reached
+2026-07-01 09:27:01 — Position entered: ATM=19600 SELL CE=19750 SELL PE=19450 MTM=0.00 Margin=650000.00
+2026-07-01 09:41:18 — PnL: Profit MTM=+2150.00 Profit=0.33%
+2026-07-01 10:52:44 — PnL: Profit MTM=+5980.00 Profit=0.92%
+2026-07-01 13:15:02 — PnL: Profit MTM=+3850.00 Profit=0.59%
+2026-07-01 15:27:00 — Scheduled exit at 15:27:00
+2026-07-01 15:27:01 — Exit completed: reason=SCHEDULED_EXIT final_mtm=6420.00
+2026-07-01 15:27:02 — Session finalized: PnL=6420.00 reason=SCHEDULED_EXIT
+```
+
+---
+
+## Example Reports
+
+The following are **example values** from a completed session. Actual results depend on market conditions.
+
+```
+Session Statistics
+══════════════════
+Net Profit             ₹6,420.00
+Gross Profit           ₹14,800.00
+Gross Loss             ₹(8,380.00)
+Maximum MTM            ₹6,420.00
+Maximum Drawdown       ₹(450.00)
+Win Rate               100.00%
+Return on Capital       0.99%
+Sharpe Ratio            1.42
+```
+
+> Reports are auto-generated after each session and saved as text files in the configured reports directory.
+
+---
+
+## Screenshots
+
+### Rich CLI Report
+
+*Screenshot placeholder — reports render in the terminal using the Rich library.*
+
+### Strategy Logs
+
+*Screenshot placeholder — per-day log files capture every strategy event.*
+
+### Database Schema
+
+*Screenshot placeholder — SQLite database with 6 tables for full trade history.*
+
+---
+
 ## Viewing Reports
-
-### Rich Console Reports
-
-Reports are auto-printed to the console and saved as text files.
 
 ### Saved Report Files
 
@@ -220,7 +464,23 @@ SELECT config_json FROM configuration_snapshot WHERE strategy_run_id = 1;
 
 ---
 
-## Development Commands
+## Testing
+
+The test suite covers 9 component areas with **48 tests**:
+
+| Test Suite | Scope |
+|------------|-------|
+| `test_config.py` | Configuration loading and validation |
+| `test_pnl_engine.py` | Position-level and portfolio MTM calculation |
+| `test_risk_manager.py` | Stop-loss detection and fail-safe behavior |
+| `test_exit_flow.py` | Exit execution and stop-loss money path |
+| `test_repository.py` | Database persistence layer |
+| `test_state_machine.py` | State transition validation |
+| `test_state_manager.py` | JSON crash recovery save/load |
+| `test_instrument_resolver.py` | Expiry detection and strike selection |
+| `test_full_session.py` | End-to-end entry → monitor → exit flow |
+
+### Running Tests
 
 ```bash
 # Run all tests
@@ -231,14 +491,20 @@ pytest -v
 
 # Run a specific test file
 pytest tests/test_pnl_engine.py -v
+```
 
+---
+
+## Development Commands
+
+```bash
 # Lint check
 ruff check .
 
 # Auto-fix lint issues
 ruff check --fix .
 
-# Type check
+# Type check (strict mode)
 mypy .
 
 # Format code
@@ -319,33 +585,64 @@ ratio-spread/
 
 ---
 
-## Architecture
+## Current Limitations
 
-### Strategy Flow
+- **Paper trading only** — no live order placement; all executions are simulated
+- **Upstox broker only** — single broker implementation via the broker interface
+- **Weekly expiry support** — monthly and quarterly expiries are not handled
+- **Windows Task Scheduler** — scheduling examples target Windows only
+- **Single strategy** — only the ratio spread strategy is implemented
 
-```
-08:00 Start (via Task Scheduler)
-  → Initialize config, DB, WebSocket
-  → Check NIFTY expiry → if not, check SENSEX
-  → If no expiry today → shutdown
+---
 
-09:27 Enter ratio spread
-  → Select ATM strikes, construct 1:N ratio spread
-  → Buy 1 ATM Call + 1 ATM Put
-  → Sell N OTM Calls + N OTM Puts (sell_multiplier from config)
-  → Transition to ENTERED → MONITORING state
+## Roadmap
 
-09:27 – 15:27 Monitor (per-tick + safety timer)
-  → On every market tick: recalculate MTM, check stop-loss
-  → Every 1 second: safety timer re-evaluates MTM & stop-loss
-  → If loss >= 1% of margin → exit immediately (stop-loss)
+- [x] Paper trading engine
+- [x] SQLite persistence with repository pattern
+- [x] JSON-based crash recovery
+- [x] Rich CLI reports (PnL, trade, session, statistics)
+- [ ] Live trading adapter
+- [ ] Telegram / email alerts
+- [ ] Web dashboard
+- [ ] Multi-broker support
+- [ ] Docker deployment
+- [ ] CI/CD pipeline
+- [ ] Portfolio analytics and historical performance views
 
-15:27 Exit all positions (if not already out)
-  → Transition to EXITING, place crash-recoverable exit orders
-  → Generate reports, save final state
-  → Shutdown
-```
+---
 
-### Crash Recovery
+## Contributing
 
-If the application crashes mid-session, restarting auto-detects the saved state in `state/position_state.json` and resumes monitoring without re-entering.
+1. **Fork** the repository
+2. **Create a branch** (`git checkout -b feature/my-feature`)
+3. Run formatting and linting before committing:
+   ```bash
+   black .
+   ruff check --fix .
+   mypy .
+   pytest -q
+   ```
+4. **Commit** your changes (`git commit -m "Add feature"`)
+5. **Push** to the branch (`git push origin feature/my-feature`)
+6. **Open a Pull Request**
+
+---
+
+## Risk Disclaimer
+
+**This software is provided for educational and research purposes only.**
+
+Options trading involves substantial financial risk, including the potential loss of more than the initial margin deposited. Past performance and simulated results do not guarantee future returns.
+
+The authors and contributors of this project:
+- Make no warranties, expressed or implied, regarding the software's fitness for any purpose
+- Are not responsible for any financial losses incurred through the use of this software
+- Recommend consulting a qualified financial advisor before engaging in any trading activity
+
+Users are solely responsible for their own trading decisions and compliance with applicable regulations.
+
+---
+
+## License
+
+License to be added.
