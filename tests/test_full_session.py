@@ -31,8 +31,10 @@ from engine.market_data_cache import MarketDataCache
 from engine.pnl_engine import PnLEngine
 from engine.risk_manager import RiskManager
 from engine.strategy_runner import StrategyRunner
+from state.control_manager import ControlManager
 from state.state_manager import StateManager
 from utils.config import AppConfig
+from utils.logging import LogManager
 from utils.models import ExitReason, InstrumentType, Side, StrategyState, Tick
 
 EXPIRY = date(2026, 7, 2)
@@ -79,7 +81,8 @@ class FakeChainBroker(PaperBroker):
         return 500000.0
 
 
-def _runner(db: SQLiteManager, cache: MarketDataCache, sm: StateManager) -> StrategyRunner:
+def _runner(db: SQLiteManager, cache: MarketDataCache, sm: StateManager,
+            cm: ControlManager) -> StrategyRunner:
     config = AppConfig()
     broker = FakeChainBroker(UpstoxBroker(config))
     pnl = PnLEngine()
@@ -88,7 +91,7 @@ def _runner(db: SQLiteManager, cache: MarketDataCache, sm: StateManager) -> Stra
         market_cache=cache, pnl_engine=pnl,
         risk_manager=RiskManager(config.trading.stop_loss_percent),
         exit_manager=ExitManager(broker, pnl, cache, sm, OrderRepository(db), PositionRepository(db)),
-        state_manager=sm,
+        state_manager=sm, control_manager=cm,
         strategy_run_repo=StrategyRunRepository(db), order_repo=OrderRepository(db),
         position_repo=PositionRepository(db), pnl_history_repo=PnLHistoryRepository(db),
         daily_summary_repo=DailySummaryRepository(db), config_snapshot_repo=ConfigSnapshotRepository(db),
@@ -108,7 +111,11 @@ async def test_full_session_entry_monitor_exit(temp_db: SQLiteManager, tmp_path:
     cache = MarketDataCache()
     sm = StateManager()
     sm.initialize(str(tmp_path / "state.json"))
-    runner = _runner(temp_db, cache, sm)
+    cm = ControlManager(
+        control_file_path=str(tmp_path / "control.json"),
+        logger=LogManager.get_logger("test"),
+    )
+    runner = _runner(temp_db, cache, sm, cm)
 
     # --- 1. Entry -----------------------------------------------------------------
     ctx = await runner.run_strategy(InstrumentType.NIFTY, EXPIRY, EXPIRY, ENTRY_LTP)

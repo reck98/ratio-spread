@@ -41,6 +41,7 @@ class ExitReason(str, Enum):
     STOP_LOSS = "STOP_LOSS"
     SCHEDULED_EXIT = "SCHEDULED_EXIT"
     MANUAL_EXIT = "MANUAL_EXIT"
+    MANUAL = "MANUAL"
     FAILED = "FAILED"
     NONE = "NONE"
 

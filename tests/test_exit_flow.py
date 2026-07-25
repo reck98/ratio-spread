@@ -28,8 +28,10 @@ from engine.market_data_cache import MarketDataCache
 from engine.pnl_engine import PnLEngine
 from engine.risk_manager import RiskManager
 from engine.strategy_runner import StrategyRunner
+from state.control_manager import ControlManager
 from state.state_manager import StateManager
 from utils.config import AppConfig
+from utils.logging import LogManager
 from utils.models import (
     ExitReason,
     InstrumentType,
@@ -103,7 +105,8 @@ async def test_exit_all_realizes_zero_price_and_is_idempotent(
     assert len(OrderRepository(temp_db).get_by_run(run_id)) == 2
 
 
-def _runner(db: SQLiteManager, cache: MarketDataCache, sm: StateManager) -> StrategyRunner:
+def _runner(db: SQLiteManager, cache: MarketDataCache, sm: StateManager,
+            cm: ControlManager) -> StrategyRunner:
     config = AppConfig()
     broker = PaperBroker(UpstoxBroker(config))
     pnl = PnLEngine()
@@ -112,7 +115,7 @@ def _runner(db: SQLiteManager, cache: MarketDataCache, sm: StateManager) -> Stra
         market_cache=cache, pnl_engine=pnl,
         risk_manager=RiskManager(config.trading.stop_loss_percent),
         exit_manager=ExitManager(broker, pnl, cache, sm, OrderRepository(db), PositionRepository(db)),
-        state_manager=sm,
+        state_manager=sm, control_manager=cm,
         strategy_run_repo=StrategyRunRepository(db), order_repo=OrderRepository(db),
         position_repo=PositionRepository(db), pnl_history_repo=PnLHistoryRepository(db),
         daily_summary_repo=DailySummaryRepository(db), config_snapshot_repo=ConfigSnapshotRepository(db),
@@ -125,7 +128,11 @@ async def test_handle_tick_trips_stop_loss(temp_db: SQLiteManager, tmp_path: Pat
     cache = MarketDataCache()
     sm = StateManager()
     sm.initialize(str(tmp_path / "state.json"))
-    runner = _runner(temp_db, cache, sm)
+    cm = ControlManager(
+        control_file_path=str(tmp_path / "control.json"),
+        logger=LogManager.get_logger("test"),
+    )
+    runner = _runner(temp_db, cache, sm, cm)
 
     # A live BUY leg: 1% of 650000 margin = 6500. Drop the price enough to exceed it.
     runner._context = StrategyContext(

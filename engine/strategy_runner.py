@@ -18,6 +18,7 @@ from engine.market_data_cache import MarketDataCache
 from engine.pnl_engine import PnLEngine
 from engine.risk_manager import RiskManager
 from engine.strategy_state_machine import StrategyStateMachine
+from state.control_manager import ControlCommand, ControlManager
 from state.state_manager import StateManager
 from utils.config import AppConfig
 from utils.logging import LogManager
@@ -46,6 +47,7 @@ class StrategyRunner:
         risk_manager: RiskManager,
         exit_manager: ExitManager,
         state_manager: StateManager,
+        control_manager: ControlManager,
         strategy_run_repo: StrategyRunRepository,
         order_repo: OrderRepository,
         position_repo: PositionRepository,
@@ -61,6 +63,7 @@ class StrategyRunner:
         self._risk_manager = risk_manager
         self._exit_manager = exit_manager
         self._state_manager = state_manager
+        self._control_manager = control_manager
         self._strategy_run_repo = strategy_run_repo
         self._order_repo = order_repo
         self._position_repo = position_repo
@@ -364,6 +367,29 @@ class StrategyRunner:
             should_exit, reason = self._risk_manager.should_exit(self._context, now_local_str, exit_time_str)
             if should_exit:
                 self._context = await self._exit_manager.exit_all(self._context, reason)
+                break
+
+            request = self._control_manager.get_command()
+            if request.command == ControlCommand.EXIT:
+                issued = request.issued_at.isoformat() if request.issued_at else "<no timestamp>"
+                self._logger.info("Control command received: EXIT")
+                self._logger.info("Issued At: %s", issued)
+                self._logger.info("Manual exit requested.")
+                self._logger.info(
+                    "Transition %s -> EXITING",
+                    self._context.strategy_state.value,
+                )
+                try:
+                    self._context = await self._exit_manager.exit_all(
+                        self._context, ExitReason.MANUAL,
+                    )
+                except Exception:
+                    self._logger.exception("Manual exit failed — command not cleared")
+                    raise
+                else:
+                    self._control_manager.clear_command()
+                    self._logger.info("Manual exit completed successfully.")
+                    self._logger.info("Control command cleared.")
                 break
 
             pnl_label = "Profit" if self._context.current_mtm >= 0 else "Loss"

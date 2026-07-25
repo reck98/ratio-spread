@@ -74,6 +74,7 @@ class DatabaseConfig(BaseModel):
 
 class StateConfig(BaseModel):
     state_file: str = "state/position_state.json"
+    control_file: str = "state/control.json"
 
 
 class LoggingConfig(BaseModel):

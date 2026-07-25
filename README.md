@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-paper%20trading-yellow)](config/config.yaml)
-[![Tests](https://img.shields.io/badge/tests-48%20passing-green)](tests/)
+[![Tests](https://img.shields.io/badge/tests-62%20passing-green)](tests/)
 [![Code Style](https://img.shields.io/badge/code%20style-black%20%7C%20ruff-black)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-not%20yet%20selected-lightgrey)]()
 
@@ -23,7 +23,8 @@ Fully automated expiry-day **Ratio Spread** algorithmic trading system for **NIF
 - **Rich CLI reports** — per-session PnL, trade details, session statistics, and aggregated metrics
 - **Structured logging** — per-day, per-category log files (7 channels)
 - **State machine execution** — enforced lifecycle prevents invalid state transitions
-- **Unit tested** — 48 tests across 9 test suites with strict typing (mypy) and linting (ruff)
+- **Manual exit** — trigger a controlled exit mid-session by editing a JSON control file
+- **Unit tested** — 62 tests across 11 test suites with strict typing (mypy) and linting (ruff)
 
 ---
 
@@ -46,7 +47,7 @@ Entry (09:27 IST)
 
 - **Instruments:** NIFTY weekly expiries (primary), SENSEX weekly expiries (fallback)
 - **Entry time:** 09:27 IST (configurable)
-- **Exit time:** 15:27 IST (configurable), or immediately on 1% stop-loss
+- **Exit time:** 15:27 IST (configurable), or immediately on 1% stop-loss, or on-demand via manual exit
 - **Sell multiplier:** Configurable (`sell_multiplier` determines N — default 3)
 
 ### Current Assumptions
@@ -129,6 +130,7 @@ database:
 
 state:
   state_file: state/position_state.json
+  control_file: state/control.json
 
 logging:
   log_directory: logs/
@@ -155,6 +157,7 @@ reports:
 | `logging.level` | Logging verbosity | `INFO` |
 | `database.sqlite_path` | Path to SQLite database file | `data/trading.db` |
 | `state.state_file` | Path to crash-recovery state file | `state/position_state.json` |
+| `state.control_file` | Path to manual exit control file | `state/control.json` |
 
 ### .env File
 
@@ -180,7 +183,7 @@ The system will:
 3. Wait until 09:27 IST
 4. Construct and execute the ratio spread
 5. Monitor MTM on every market tick (plus a 1-second safety timer)
-6. Exit at 15:27, on 1% stop-loss (evaluated per-tick), or on crash recovery
+6. Exit at 15:27, on 1% stop-loss (evaluated per-tick), on crash recovery, or on-demand via manual exit
 7. Generate reports and shut down
 
 ### Scheduled Start (Windows Task Scheduler)
@@ -265,7 +268,7 @@ stateDiagram-v2
     SELECTING_INSTRUMENTS --> BUILDING_POSITION : strikes resolved
     BUILDING_POSITION --> ENTERED : orders placed
     ENTERED --> MONITORING : position live
-    MONITORING --> EXITING : stop-loss / scheduled exit
+    MONITORING --> EXITING : stop-loss / scheduled / manual exit
     EXITING --> COMPLETED : all legs closed
     IDLE --> COMPLETED : no expiry today
     WAITING_FOR_ENTRY --> COMPLETED : entry window missed
@@ -299,16 +302,61 @@ stateDiagram-v2
   → Sell N OTM Calls + N OTM Puts (sell_multiplier from config)
   → Transition to ENTERED → MONITORING state
 
-09:27 – 15:27 Monitor (per-tick + safety timer)
+09:27 – 15:27 Monitor (per-tick + safety timer + manual exit)
   → On every market tick: recalculate MTM, check stop-loss
   → Every 1 second: safety timer re-evaluates MTM & stop-loss
+  → Each iteration: check control file for manual EXIT command
   → If loss >= 1% of margin → exit immediately (stop-loss)
+  → If EXIT command in control.json → exit (manual)
 
 15:27 Exit all positions (if not already out)
   → Transition to EXITING, place crash-recoverable exit orders
   → Generate reports, save final state
   → Shutdown
 ```
+
+### Manual Exit
+
+During an active trading session (while the strategy is in `MONITORING` state), you can request a controlled exit by editing the control file:
+
+```
+state/control.json
+```
+
+**Default state (no command):**
+```json
+{
+    "command": "NONE",
+    "issued_at": null
+}
+```
+
+**Trigger a manual exit:**
+```json
+{
+    "command": "EXIT",
+    "issued_at": "2026-07-25T11:18:42+05:30"
+}
+```
+
+After saving the file, the engine will (within approximately one second):
+
+1. Detect the `EXIT` command during its monitoring loop
+2. Perform a normal exit using the same pipeline as scheduled/stop-loss exits
+3. Record `Exit Reason = MANUAL` in logs, database, and reports
+4. Reset `control.json` back to `NONE` to prevent repeated processing
+5. Generate reports and proceed with normal shutdown
+
+The `issued_at` timestamp is informational and logged if present.
+
+#### Design
+
+- The `ControlManager` owns the control file — no other component reads it directly
+- Commands are cleared only after a successful exit (no premature reset)
+- Invalid JSON or unknown commands are logged and treated as `NONE`
+- Missing control files are automatically created with defaults
+- All writes to `control.json` use atomic rename (`os.replace`) to prevent partial reads
+- The abstraction makes it straightforward to replace the JSON file with a REST API, Telegram bot, database, or other command source in the future
 
 ### Crash Recovery
 
@@ -466,11 +514,12 @@ SELECT config_json FROM configuration_snapshot WHERE strategy_run_id = 1;
 
 ## Testing
 
-The test suite covers 9 component areas with **48 tests**:
+The test suite covers 11 component areas with **62 tests**:
 
 | Test Suite | Scope |
 |------------|-------|
 | `test_config.py` | Configuration loading and validation |
+| `test_control_manager.py` | Control file management and manual exit integration |
 | `test_pnl_engine.py` | Position-level and portfolio MTM calculation |
 | `test_risk_manager.py` | Stop-loss detection and fail-safe behavior |
 | `test_exit_flow.py` | Exit execution and stop-loss money path |
@@ -546,8 +595,9 @@ ratio-spread/
 │   ├── sqlite_manager.py
 │   ├── repository.py
 │   └── schema.sql
-├── state/                  # Crash recovery
-│   └── state_manager.py
+├── state/                  # Crash recovery & manual exit
+│   ├── control_manager.py  # Control file commands (manual exit)
+│   └── state_manager.py    # Position state persistence
 ├── reports/                # Rich CLI reports
 │   ├── pnl_report.py
 │   ├── session_report.py

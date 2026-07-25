@@ -17,10 +17,12 @@ from engine.exit_manager import ExitManager
 from engine.market_data_cache import MarketDataCache
 from engine.pnl_engine import PnLEngine
 from engine.risk_manager import RiskManager
+from engine.strategy_runner import StrategyRunner
 from reports.pnl_report import PnLReport
 from reports.session_report import SessionReport
 from reports.statistics import StatisticsReport
 from reports.trade_report import TradeReport
+from state.control_manager import ControlManager
 from state.state_manager import StateManager
 from strategy.ratio_spread import RatioSpreadStrategy
 from utils.config import AppConfig, ConfigLoader
@@ -35,6 +37,7 @@ class ApplicationComponents:
         self.pnl_engine: PnLEngine
         self.risk_manager: RiskManager
         self.state_manager: StateManager
+        self.control_manager: ControlManager
         self.upstox_broker: UpstoxBroker
         self.paper_broker: PaperBroker
         self.instrument_resolver: InstrumentResolver
@@ -83,6 +86,13 @@ class Startup:
             components.state_manager = state_manager
             logger.info("State manager initialized")
 
+            control_manager = ControlManager(
+                control_file_path=config.state.control_file,
+                logger=logger,
+            )
+            components.control_manager = control_manager
+            logger.info("Control manager initialized")
+
             upstox = UpstoxBroker(config)
             await upstox.connect()
             await upstox.authenticate()
@@ -122,7 +132,7 @@ class Startup:
             position_repo=components.position_repo,
         )
 
-        components.strategy = RatioSpreadStrategy(
+        runner = StrategyRunner(
             config=config,
             broker=paper_broker,
             instrument_resolver=components.instrument_resolver,
@@ -131,6 +141,7 @@ class Startup:
             risk_manager=components.risk_manager,
             exit_manager=exit_manager,
             state_manager=state_manager,
+            control_manager=control_manager,
             strategy_run_repo=components.strategy_run_repo,
             order_repo=components.order_repo,
             position_repo=components.position_repo,
@@ -138,6 +149,8 @@ class Startup:
             daily_summary_repo=components.daily_summary_repo,
             config_snapshot_repo=components.config_snapshot_repo,
         )
+
+        components.strategy = RatioSpreadStrategy(runner=runner)
 
         components.pnl_report = PnLReport(components.strategy_run_repo, components.daily_summary_repo)
         components.trade_report = TradeReport(components.order_repo, components.position_repo)
