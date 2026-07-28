@@ -1,0 +1,35 @@
+2026-07-28 09:46:52 INFO     websocket       WebSocket disconnected
+2026-07-28 09:47:09 INFO     websocket       Got authorized WebSocket URL
+2026-07-28 09:47:10 INFO     websocket       WebSocket connected
+2026-07-28 09:47:10 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|63939', 'NSE_FO|63940', 'NSE_FO|63943', 'NSE_FO|63936']
+2026-07-28 10:50:34 WARNING  websocket       Heartbeat timeout, reconnecting
+2026-07-28 10:50:34 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-28 10:50:36 INFO     websocket       Got authorized WebSocket URL
+2026-07-28 10:50:37 INFO     websocket       WebSocket connected
+2026-07-28 10:50:37 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|63939', 'NSE_FO|63936', 'NSE_FO|63943', 'NSE_FO|63940']
+2026-07-28 10:50:37 INFO     websocket       Reconnection succeeded on attempt 1
+2026-07-28 13:54:00 WARNING  websocket       Heartbeat timeout, reconnecting
+2026-07-28 13:54:00 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-28 13:54:03 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:03 ERROR    websocket       Reconnection attempt 1 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:03 INFO     websocket       Reconnection attempt 2/5 in 4s...
+2026-07-28 13:54:29 INFO     websocket       Got authorized WebSocket URL
+2026-07-28 13:54:29 INFO     websocket       WebSocket connected
+2026-07-28 13:54:29 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|63939', 'NSE_FO|63936', 'NSE_FO|63940', 'NSE_FO|63943']
+2026-07-28 13:54:29 INFO     websocket       Reconnection succeeded on attempt 2
+2026-07-28 13:54:37 WARNING  websocket       WebSocket closed by server, reconnecting
+2026-07-28 13:54:37 INFO     websocket       Reconnection attempt 1/5 in 2s...
+2026-07-28 13:54:39 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:39 ERROR    websocket       Reconnection attempt 1 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:39 INFO     websocket       Reconnection attempt 2/5 in 4s...
+2026-07-28 13:54:43 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:43 ERROR    websocket       Reconnection attempt 2 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:43 INFO     websocket       Reconnection attempt 3/5 in 6s...
+2026-07-28 13:54:49 ERROR    websocket       WebSocket connection failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:49 ERROR    websocket       Reconnection attempt 3 failed: Cannot connect to host api.upstox.com:443 ssl:default [getaddrinfo failed]
+2026-07-28 13:54:49 INFO     websocket       Reconnection attempt 4/5 in 8s...
+2026-07-28 13:54:57 INFO     websocket       Got authorized WebSocket URL
+2026-07-28 13:54:57 INFO     websocket       WebSocket connected
+2026-07-28 13:54:57 INFO     websocket       Subscribed to 4 instruments: ['NSE_FO|63939', 'NSE_FO|63936', 'NSE_FO|63940', 'NSE_FO|63943']
+2026-07-28 13:54:57 INFO     websocket       Reconnection succeeded on attempt 4
+2026-07-28 15:27:00 INFO     websocket       WebSocket disconnected
