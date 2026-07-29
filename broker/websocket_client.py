@@ -197,10 +197,10 @@ class WebSocketManager:
             self._session = None
 
     async def _reconnect(self) -> bool:
-        """Reconnect with bounded exponential backoff. Returns True on success.
+        """Reconnect with bounded backoff for initial 5 attempts, then retry every 15s indefinitely.
 
         Does NOT flip ``_running`` off, so the supervisory ``listen`` loop keeps
-        running and re-subscribes after every disconnect (not just the first).
+        running and re-subscribes after every disconnect.
         """
         self._health = BrokerHealth.RECONNECTING
         await self._close_socket()
@@ -209,15 +209,23 @@ class WebSocketManager:
         keys_to_resubscribe = list(self._subscribed)
         self._subscribed.clear()
 
-        for attempt in range(1, self._max_reconnect_attempts + 1):
+        attempt = 1
+        while self._running:
+            if attempt <= self._max_reconnect_attempts:
+                delay = self._reconnect_backoff_base * attempt
+                self._logger.info(
+                    "Reconnection attempt %d/%d in %ds...",
+                    attempt, self._max_reconnect_attempts, delay,
+                )
+            else:
+                delay = 15
+                self._logger.info(
+                    "Reconnection attempt %d (indefinite mode) in %ds...",
+                    attempt, delay,
+                )
+            await asyncio.sleep(delay)
             if not self._running:
                 return False
-            delay = self._reconnect_backoff_base * attempt
-            self._logger.info(
-                "Reconnection attempt %d/%d in %ds...",
-                attempt, self._max_reconnect_attempts, delay,
-            )
-            await asyncio.sleep(delay)
             try:
                 await self.connect()
                 if keys_to_resubscribe:
@@ -228,11 +236,8 @@ class WebSocketManager:
                 return True
             except Exception as e:
                 self._logger.error("Reconnection attempt %d failed: %s", attempt, e)
+            attempt += 1
 
-        self._health = BrokerHealth.FAILED
-        self._logger.error(
-            "Reconnection failed after %d attempts — giving up", self._max_reconnect_attempts,
-        )
         return False
 
     async def disconnect(self) -> None:
