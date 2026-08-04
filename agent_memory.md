@@ -21,6 +21,7 @@
 - Ratio Spread Strategy (entry, monitoring, exit)
 - Scheduler (time-based triggers, late-entry grace)
 - Reports (PnL, Trade, Session, Statistics)
+- GitCommitRunner (automated post-session git commit execution, timeout protection, idempotency guard)
 - Application Entry Point (startup, shutdown, main loop, crash recovery)
 - Tests (9 suites incl. persistence, exit-flow, and full-session integration)
 

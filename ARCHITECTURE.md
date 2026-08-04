@@ -19,6 +19,7 @@ app/main.py (entry point)
   │                 ├── engine/pnl_engine.py
   │                 ├── engine/risk_manager.py
   │                 ├── engine/exit_manager.py
+  │                 ├── engine/git_commit_runner.py
   │                 ├── engine/market_data_cache.py
   │                 └── engine/strategy_state_machine.py
   │
@@ -52,6 +53,8 @@ WebSocket Tick → MarketDataCache → StrategyRunner → PnLEngine → RiskMana
                                  SQLite (DB)
                                        ↓
                                  Reports (Rich)
+                                       ↓
+                            GitCommitRunner (Subprocess)
 ```
 
 ## State Machine

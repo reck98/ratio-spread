@@ -35,6 +35,7 @@ class TradingApp:
                     # recover() already completed/finalized any mid-exit — still emit
                     # the session reports so the run isn't left without output.
                     await self._generate_reports(recovered)
+                    self._components.git_commit_runner.run(recovered)
                 else:
                     self._logger.warning(
                         "Recovered in unmanaged state %s — no positions to monitor",
@@ -49,7 +50,9 @@ class TradingApp:
             assert self._instrument is not None and self._expiry_date is not None
 
             self._logger.info(
-                "Trading %s (expiry: %s)", self._instrument.value, self._expiry_date,
+                "Trading %s (expiry: %s)",
+                self._instrument.value,
+                self._expiry_date,
             )
 
             if not await self._scheduler.wait_for_entry():
@@ -62,7 +65,10 @@ class TradingApp:
                 return
 
             context = await self._components.strategy.execute(
-                self._instrument, date.today(), self._expiry_date, ltp,
+                self._instrument,
+                date.today(),
+                self._expiry_date,
+                ltp,
             )
 
             if context.strategy_state != StrategyState.MONITORING:
@@ -72,6 +78,7 @@ class TradingApp:
             await self._start_websocket(context)
             final_context = await self._components.strategy.monitor()
             await self._generate_reports(final_context)
+            self._components.git_commit_runner.run(final_context)
 
         except Exception as e:
             logger = LogManager.get_logger("error")
@@ -99,7 +106,10 @@ class TradingApp:
                 self._logger.info("Today is %s expiry — trading", instrument.value)  # type: ignore[union-attr]
                 return True
             self._logger.info(  # type: ignore[union-attr]
-                "%s expiry=%s != today=%s — skipping", instrument.value, expiry, today,
+                "%s expiry=%s != today=%s — skipping",
+                instrument.value,
+                expiry,
+                today,
             )
         return False
 
@@ -117,11 +127,14 @@ class TradingApp:
             await self._components.websocket_manager.subscribe(instrument_keys)  # type: ignore[union-attr]
         final_context = await self._components.strategy.monitor()  # type: ignore[union-attr]
         await self._generate_reports(final_context)
+        self._components.git_commit_runner.run(final_context)  # type: ignore[union-attr]
 
     async def _start_websocket(self, context: StrategyContext) -> None:
         ws = self._components.websocket_manager  # type: ignore[union-attr]
+
         async def tick_handler(tick: Tick) -> None:
             await self._components.strategy.on_tick(tick)  # type: ignore[union-attr]
+
         ws.set_tick_handler(tick_handler)
 
         try:
@@ -145,7 +158,9 @@ class TradingApp:
         exc = task.exception()
         if exc is not None:
             LogManager.get_logger("websocket").error(
-                "WebSocket listen task exited with error: %s", exc, exc_info=exc,
+                "WebSocket listen task exited with error: %s",
+                exc,
+                exc_info=exc,
             )
 
     async def _cancel_ws_task(self) -> None:

@@ -1,0 +1,12 @@
+2026-08-04 17:37:58 ERROR    error           Fatal application error: object NoneType can't be used in 'await' expression
+Traceback (most recent call last):
+  File "E:\Development\PlayGround\ratio-spread\app\main.py", line 29, in run
+    recovered = await self._try_recovery()
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object NoneType can't be used in 'await' expression
+2026-08-04 17:37:58 ERROR    error           Fatal application error: object NoneType can't be used in 'await' expression
+Traceback (most recent call last):
+  File "E:\Development\PlayGround\ratio-spread\app\main.py", line 29, in run
+    recovered = await self._try_recovery()
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object NoneType can't be used in 'await' expression

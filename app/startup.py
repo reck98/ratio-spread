@@ -14,6 +14,7 @@ from database.repository import (
 )
 from database.sqlite_manager import SQLiteManager
 from engine.exit_manager import ExitManager
+from engine.git_commit_runner import GitCommitRunner
 from engine.market_data_cache import MarketDataCache
 from engine.pnl_engine import PnLEngine
 from engine.risk_manager import RiskManager
@@ -53,6 +54,7 @@ class ApplicationComponents:
         self.trade_report: TradeReport
         self.session_report: SessionReport
         self.statistics_report: StatisticsReport
+        self.git_commit_runner: GitCommitRunner
 
 
 class Startup:
@@ -156,6 +158,7 @@ class Startup:
         components.trade_report = TradeReport(components.order_repo, components.position_repo)
         components.session_report = SessionReport()
         components.statistics_report = StatisticsReport()
+        components.git_commit_runner = GitCommitRunner()
 
         logger.info("Startup complete")
         return components

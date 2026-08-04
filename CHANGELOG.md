@@ -1,6 +1,19 @@
 # Changelog
 
-## v0.2.0 (2026-07-07)
+## v0.3.0 (2026-08-04)
+
+Added automated post-session Git commit execution (`GitCommitRunner`) after completed trading sessions.
+
+### Added
+- `GitCommitRunner` service (`engine/git_commit_runner.py`) to run `python scripts/git-commit.py` post-session.
+- Execution safety features:
+  - Interpreter binding via `sys.executable`.
+  - Absolute script path resolution using `pathlib` relative to project root.
+  - Subprocess timeout protection (60s default) with graceful exception catching.
+  - Duration measurement using `time.perf_counter()`.
+  - Exactly-once execution guarantee backed by an in-memory `run_id` idempotency guard (`_executed_run_ids`).
+- Hook integration in `app/main.py` immediately following report generation (`_generate_reports`).
+- Expanded test suite in `tests/test_git_commit_runner.py` covering scheduled exit, manual exit, stop-loss exit, non-trading days, timeouts, non-zero return codes, and crash recovery.
 
 Stability, correctness, and safety remediation across the paper build (full audit → fixes).
 

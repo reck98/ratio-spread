@@ -98,3 +98,12 @@ repository writers, and `reset()` classmethods on the singletons driven by an au
 fixture.  
 **Alternatives:** Per-thread connections; a full transaction context manager.  
 **Consequences:** +write atomicity, +isolated tests; −writes serialize on one lock.
+
+## ADR-011: Automated Post-Session Git Commit Hook
+
+**Date:** 2026-08-04  
+**Context:** Need automated git persistence after completed trading sessions without risking engine crashes or double-execution during recovery.  
+**Decision:** Implement `GitCommitRunner` post-session service called in `TradingApp` after `_generate_reports()`. Execute using current Python interpreter (`sys.executable`), absolute script path (`pathlib`), 60s timeout, duration logging via `time.perf_counter()`, and an in-memory `run_id` idempotency set.  
+**Alternatives:** Embedding subprocess calls in ExitManager; running git commit before reports.  
+**Consequences:** +all report & log files included, +exactly-once execution, +fault-tolerant, +portable across environments.
+

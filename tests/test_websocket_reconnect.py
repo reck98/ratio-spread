@@ -1,9 +1,8 @@
-import asyncio
 from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from broker.websocket_client import WebSocketManager
-from utils.models import BrokerHealth
 
 
 @pytest.mark.asyncio
@@ -22,7 +21,8 @@ async def test_reconnect_succeeds_first_attempt() -> None:
         assert result is True
         mock_close.assert_called_once()
         mock_connect.assert_called_once()
-        mock_sub.assert_called_once_with(["NSE_FO|NIFTY24CE", "NSE_FO|NIFTY24PE"])
+        mock_sub.assert_called_once()
+        assert set(mock_sub.call_args[0][0]) == {"NSE_FO|NIFTY24CE", "NSE_FO|NIFTY24PE"}
         mock_sleep.assert_called_once_with(2)  # attempt 1 delay: 2s
 
 

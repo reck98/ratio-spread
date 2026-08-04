@@ -21399,3 +21399,9 @@
 2026-08-04 15:27:00 INFO     strategy        Scheduled exit at 15:27:00
 2026-08-04 15:27:00 INFO     strategy        Exit completed: reason=SCHEDULED_EXIT final_mtm=1462.50
 2026-08-04 15:27:00 INFO     strategy        Session finalized: PnL=1462.50 reason=SCHEDULED_EXIT
+2026-08-04 17:37:59 WARNING  strategy        Stop loss triggered: loss=1.00% (limit=1.0%) MTM=-5000.00 Margin=500000.00
+2026-08-04 17:37:59 WARNING  strategy        Stop loss triggered: loss=1.00% (limit=1.0%) MTM=-5000.00 Margin=500000.00
+2026-08-04 17:37:59 INFO     strategy        Scheduled exit at 15:27:00
+2026-08-04 17:37:59 WARNING  strategy        Stop loss triggered: loss=1.00% (limit=1.0%) MTM=-5000.00 Margin=500000.00
+2026-08-04 17:37:59 WARNING  strategy        Margin is 0.00 (<= 0) with a losing MTM -5000.00 — cannot size stop-loss, forcing exit as a safety measure
+2026-08-04 17:37:59 ERROR    strategy        Failed to load state file C:\Users\aashi\AppData\Local\Temp\pytest-of-aashi\pytest-1\test_load_corrupt_json_returns0\corrupt_state.json (Expecting value: line 1 column 48 (char 47)) — ignoring and starting fresh
