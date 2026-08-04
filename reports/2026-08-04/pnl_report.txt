@@ -1,0 +1,10 @@
+PnL Report — 2026-08-04
+Instrument: NIFTY
+ATM Strike: 24600.0
+Sell Call Strike: 24700.0
+Sell Put Strike: 24500.0
+Entry Time: 2026-08-04 03:57:01.492726+00:00
+Exit Time: 2026-08-04 09:57:00.012119+00:00
+Margin Used: Rs.681,389.28
+Final MTM: Rs.1,462.50
+Exit Reason: SCHEDULED_EXIT
