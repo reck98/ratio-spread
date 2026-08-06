@@ -1,0 +1,5 @@
+2026-08-06 10:19:32 INFO     orders          Paper broker connected (simulated)
+2026-08-06 10:19:33 INFO     orders          FILLED BUY 1 SENSEX78700.0CE CE @ 341.00
+2026-08-06 10:19:33 INFO     orders          FILLED BUY 1 SENSEX78700.0PE PE @ 338.45
+2026-08-06 10:19:33 INFO     orders          FILLED SELL 3 SENSEX79400.0CE CE @ 91.10
+2026-08-06 10:19:33 INFO     orders          FILLED SELL 3 SENSEX78000.0PE PE @ 98.15
