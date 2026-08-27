@@ -13,7 +13,7 @@ strategy:
 trading:
   margin: 650000
   entry_time: "09:27:00"
-  exit_time: "15:27:00"
+  exit_time: "15:13:00"
   monitor_interval: 1
   stop_loss_percent: 1.0
   strike_interval: 50

@@ -27,7 +27,7 @@ class StrategyConfig(BaseModel):
 class TradingConfig(BaseModel):
     margin: float = Field(default=650000.0, gt=0)
     entry_time: str = "09:27:00"
-    exit_time: str = "15:27:00"
+    exit_time: str = "15:13:00"
     monitor_interval: int = Field(default=1, gt=0)
     stop_loss_percent: float = Field(default=1.0, gt=0)
     strike_interval: int = Field(default=50, gt=0)

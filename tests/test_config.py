@@ -15,7 +15,7 @@ def sample_config() -> dict[str, object]:
         "strategy": {"name": "ratio_spread"},
         "trading": {
             "entry_time": "09:27:00",
-            "exit_time": "15:27:00",
+            "exit_time": "15:13:00",
             "monitor_interval": 1,
             "stop_loss_percent": 1.0,
             "strike_interval": 50,
@@ -39,7 +39,7 @@ def test_config_loading(sample_config: dict[str, object], tmp_path: Path) -> Non
     config = loader.load(str(config_path))
     assert isinstance(config, AppConfig)
     assert config.trading.entry_time == "09:27:00"
-    assert config.trading.exit_time == "15:27:00"
+    assert config.trading.exit_time == "15:13:00"
     assert config.trading.stop_loss_percent == 1.0
 
 
