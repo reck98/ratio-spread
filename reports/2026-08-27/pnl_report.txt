@@ -1,0 +1,10 @@
+PnL Report — 2026-08-27
+Instrument: SENSEX
+ATM Strike: 77500.0
+Sell Call Strike: 77800.0
+Sell Put Strike: 77200.0
+Entry Time: 2026-08-27 03:57:00.354568+00:00
+Exit Time: 2026-08-27 09:56:49.764405+00:00
+Margin Used: Rs.646,673.69
+Final MTM: Rs.-7,228.00
+Exit Reason: STOP_LOSS
