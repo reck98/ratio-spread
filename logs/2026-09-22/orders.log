@@ -1,1 +1,6 @@
 2026-09-22 09:06:15 INFO     orders          Paper broker connected (simulated)
+2026-09-22 09:27:00 INFO     orders          FILLED BUY 1 NIFTY23450.0CE CE @ 42.00
+2026-09-22 09:27:00 INFO     orders          FILLED BUY 1 NIFTY23450.0PE PE @ 56.80
+2026-09-22 09:27:00 INFO     orders          FILLED SELL 3 NIFTY23550.0CE CE @ 11.30
+2026-09-22 09:27:00 INFO     orders          FILLED SELL 3 NIFTY23300.0PE PE @ 12.10
+2026-09-22 15:13:10 INFO     orders          Paper broker disconnected
