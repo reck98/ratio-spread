@@ -1,0 +1,4 @@
+2026-10-01 09:27:00 INFO     websocket       Got authorized WebSocket URL
+2026-10-01 09:27:01 INFO     websocket       WebSocket connected
+2026-10-01 09:27:01 INFO     websocket       Subscribed to 4 instruments: ['BSE_FO|887306', 'BSE_FO|886620', 'BSE_FO|887200', 'BSE_FO|886876']
+2026-10-01 12:57:01 INFO     websocket       WebSocket disconnected
